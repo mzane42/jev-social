@@ -25,7 +25,7 @@ Usage:
   jev-social status                               Show local readiness
   jev-social search <query> [options]             Run one search
   jev-social serve [--port 8766] [--no-open]      Start local preview
-  jev-social profile <url> --niche <slug>          Analyse a TikTok/Instagram profile into an HTML report
+  jev-social profile <url> --niche <slug>         Analyse a TikTok/Instagram profile into an HTML report
   jev-social reports rebuild                      Regenerate report index pages
 
 Search options:
@@ -101,7 +101,8 @@ try {
     });
     if (result.snapshot.partial) console.error(`Partial capture: ${result.snapshot.partialReason}`);
     console.log(path.join(result.dir, "report.html"));
-  } else if (command === "reports" && rest[0] === "rebuild") {
+  } else if (command === "reports") {
+    if (rest[0] !== "rebuild") throw new Error("Usage: jev-social reports rebuild");
     const deps = await profileDeps();
     const counts = await rebuildIndexes(deps);
     console.log(`${counts.niches} niches, ${counts.accounts} accounts → ${path.join(reportsRoot(), "index.html")}`);
