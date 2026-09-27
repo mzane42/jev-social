@@ -26,7 +26,7 @@ const link = (url, label) => {
 const STYLE = `
 :root{--bg:#fafaf9;--fg:#1c1917;--muted:#78716c;--card:#fff;--line:#e7e5e4;--accent:#e11d48;--warn:#b45309}
 @media (prefers-color-scheme: dark){:root{--bg:#0c0a09;--fg:#f5f5f4;--muted:#a8a29e;--card:#1c1917;--line:#292524;--accent:#fb7185;--warn:#fbbf24}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,sans-serif;overflow-wrap:anywhere}
 main{max-width:1040px;margin:0 auto;padding:24px 16px}h1{margin:0 0 4px;font-size:1.6rem}h2{margin:32px 0 12px;font-size:1.1rem}
 a{color:var(--accent)}.muted{color:var(--muted)}.banner{border:1px solid var(--warn);color:var(--warn);padding:8px 12px;border-radius:8px;margin:16px 0}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
@@ -42,20 +42,20 @@ function page(title, body, { sortable = false } = {}) {
 }
 
 function numCell(value, format) {
-  return `<td class="n" data-v="${value == null ? -1 : value}">${format(value)}</td>`;
+  return `<td class="n" data-v="${Number.isFinite(value) ? value : -1}">${format(value)}</td>`;
 }
 
 function viewsChart(items) {
-  const viewed = items.filter((item) => item.views != null);
+  const viewed = items.map((item, index) => ({ item, position: index + 1 })).filter((entry) => entry.item.views != null);
   if (!viewed.length) return `<p class="muted">No view counts captured (n/a).</p>`;
-  const max = Math.max(...viewed.map((item) => item.views)) || 1;
+  const max = Math.max(...viewed.map((entry) => entry.item.views)) || 1;
   const bar = 28;
   const gap = 8;
   const width = viewed.length * (bar + gap);
-  const bars = viewed.map((item, index) => {
-    const height = Math.max(2, Math.round((item.views / max) * 140));
+  const bars = viewed.map((entry, index) => {
+    const height = Math.max(2, Math.round((entry.item.views / max) * 140));
     const x = index * (bar + gap);
-    return `<rect x="${x}" y="${150 - height}" width="${bar}" height="${height}" rx="3"><title>${escapeHtml(num(item.views))} views</title></rect><text x="${x + bar / 2}" y="164" text-anchor="middle">${index + 1}</text>`;
+    return `<rect x="${x}" y="${150 - height}" width="${bar}" height="${height}" rx="3"><title>${escapeHtml(num(entry.item.views))} views</title></rect><text x="${x + bar / 2}" y="164" text-anchor="middle">${entry.position}</text>`;
   }).join("");
   return `<svg viewBox="0 0 ${width} 170" role="img" aria-label="Views per item">${bars}</svg>`;
 }
@@ -91,7 +91,7 @@ ${snapshot.partial ? `<div class="banner">Partial capture: ${escapeHtml(snapshot
 <h2>Views per item</h2>${viewsChart(snapshot.items)}
 <h2>Items</h2><div class="scroll"><table data-sort><thead><tr><th>#</th><th>Caption</th><th>Views</th><th>Likes</th><th>Shares</th><th>Saves</th><th>Comments</th><th>Like rate</th><th>Share rate</th><th>Date</th></tr></thead><tbody>${rows}</tbody></table></div>
 <h2>Top comments</h2>${comments ? `<ul>${comments}</ul>` : `<p class="muted">No comments captured.</p>`}
-<p class="muted">jev-social ${escapeHtml(version)} · data.json alongside this file</p>`;
+<p class="muted">jev-social ${escapeHtml(version)} · captured ${escapeHtml(snapshot.capturedAt)} · data.json alongside this file</p>`;
   return page(`${name} report`, body, { sortable: true });
 }
 

@@ -66,3 +66,45 @@ test("index pages link relative reports and escape names", () => {
   assert.match(root, /href="football-anime\/index.html"/);
   assert.match(root, />2</);
 });
+
+test("chart bar labels match items-table row numbers (fix #1)", () => {
+  const testSnapshot = {
+    ...snapshot,
+    items: [
+      { ...snapshot.items[0], views: 100 },
+      { ...snapshot.items[1], views: null },
+      { ...snapshot.items[0], views: 300 },
+    ],
+  };
+  const html = renderReport({
+    snapshot: testSnapshot,
+    metrics: { ...metrics, items: [] },
+    version: "0.1.10",
+  });
+  assert.match(html, />3<\/text>/);
+  assert.doesNotMatch(html, />2<\/text>/);
+});
+
+test("body rule contains overflow-wrap:anywhere (fix #2)", () => {
+  const html = renderReport({
+    snapshot, metrics, version: "0.1.10",
+  });
+  assert.match(html, /overflow-wrap:anywhere/);
+});
+
+test("data-v attribute hardened against non-finite values (fix #3)", () => {
+  const testSnapshot = {
+    ...snapshot,
+    profile: { ...snapshot.profile, followers: '1" onmouseover="x' },
+  };
+  const html = renderNicheIndex("test", [{ href: "test/report.html", snapshot: testSnapshot, metrics }]);
+  assert.doesNotMatch(html, /onmouseover="x/);
+  assert.match(html, /data-v="-1"/);
+});
+
+test("footer contains version and capture time (fix #4)", () => {
+  const html = renderReport({
+    snapshot, metrics, version: "0.1.10",
+  });
+  assert.match(html, /jev-social 0\.1\.10 · captured 2026-09-27T18:00:00\.000Z/);
+});
