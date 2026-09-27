@@ -391,7 +391,7 @@ export async function runSocaiTikTokVideos({
   });
 }
 
-async function runSocaiJson(bin, args, { env, onProgress, signal, timeoutMs = 8 * 60_000 }) {
+export async function runSocaiJson(bin, args, { env, onProgress, signal, timeoutMs = 8 * 60_000 }) {
   const command = formatCommand(bin, args);
   const startedAt = Date.now();
   let result;

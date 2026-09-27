@@ -1,0 +1,24 @@
+{
+  "display_name": "Demo IG",
+  "bio": "",
+  "followers": 427000,
+  "posts": [
+    { "id": "AAA", "kind": "reel", "url": "https://www.instagram.com/demo_ig/reel/AAA/" },
+    { "id": "BBB", "kind": "post", "url": "https://www.instagram.com/demo_ig/p/BBB/" }
+  ],
+  "deep_status": { "attempted": 1, "completed": 1, "ok": true, "requested": 1 },
+  "deep_posts": [
+    {
+      "ok": true,
+      "entity": {
+        "id": "AAA",
+        "caption": "Dictator striker please let him score",
+        "published_at": "2026-07-01T00:00:00.000Z",
+        "engagement": { "likes": null, "comments": null }
+      },
+      "comments": [
+        { "author": { "username": "fan_one" }, "text": "I want the whole series about this\n12 sem123 J'aimeRépondre\nVoir la traduction", "likes": null }
+      ]
+    }
+  ]
+}

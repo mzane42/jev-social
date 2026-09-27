@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "profile": {
+    "display_name": "Demo Studio",
+    "bio": "Anime football highlights",
+    "followers": "53400",
+    "likes": "1500000",
+    "video_count": "82",
+    "video_cards": [
+      { "video_id": "111", "url": "https://www.tiktok.com/@demo_creator/video/111", "title": "Opening day", "views": "320.8K", "likes": "", "comments": "", "shares": "", "duration_seconds": 0 },
+      { "video_id": "222", "url": "https://www.tiktok.com/@demo_creator/video/222", "title": "World cup", "views": "2.2M", "likes": "", "comments": "", "shares": "", "duration_seconds": 0 },
+      { "video_id": "333", "url": "https://www.tiktok.com/@demo_creator/video/333", "title": "Derby", "views": "1215", "likes": "", "comments": "", "shares": "", "duration_seconds": 0 }
+    ]
+  }
+}
