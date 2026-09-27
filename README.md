@@ -186,6 +186,30 @@ npm start -- search "find handmade art on Instagram and read the comments" --lim
 
 `--limit` is the target result count and per-search/profile collection size (1–100). All captured records are retained, including intermediate profile cards. `--max-steps` bounds the decision loop (1–30, default 12); each selected operation or finish decision consumes one step. The HTTP search endpoints also accept `maxSteps`.
 
+### Niche profile reports
+
+Analyse one TikTok or Instagram profile into a private, local HTML report, grouped by niche, then rebuild the index pages from what is already saved:
+
+```bash
+npm start -- profile https://www.tiktok.com/@somecreator --niche football-anime
+npm start -- reports rebuild
+```
+
+- `--niche <slug>` — required, a lowercase slug like `football-anime` (a-z, 0-9, -)
+- `--videos <1-50>` — items to collect (default 12)
+- `--deep <0-10>` — top items read with comments (default 3)
+
+Reports are written outside this repository, under `${JEV_SOCIAL_REPORTS_DIR:-~/.jev-social/reports}`:
+
+```
+<niche>/<platform>@<handle>/<date>/report.html
+<niche>/<platform>@<handle>/<date>/data.json
+<niche>/index.html
+index.html
+```
+
+Every file in that tree is written with mode `0600` (directories `0700`), and nothing under it is copied into this repository. Set `OPENROUTER_REPORT_MODEL=off` to skip the OpenRouter insight pass and get the deterministic report only.
+
 For browser connection checks, platform login barriers, and safe status diagnostics, see [Troubleshooting](https://github.com/socai-io/jev-social/blob/main/docs/troubleshooting.md).
 
 ## Contribute

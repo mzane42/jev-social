@@ -130,7 +130,9 @@ Ports, as documented in a comment block at the top of `analyze.js`:
   items: [{
     url, kind, caption, createdAt, durationSeconds,
     views, likes, comments, shares, saves,   // numbers or null; never guessed
-    topComments: [{ text, likes }]
+    topComments: [{ text, likes }],
+    detailCaptured: boolean,   // TikTok: a deep get-videos read for this item.video_id succeeded;
+                               // Instagram: a deep read for this post.id returned an entity
   }]
 }
 ```
