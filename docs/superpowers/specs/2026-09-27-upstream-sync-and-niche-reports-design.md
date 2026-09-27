@@ -24,20 +24,31 @@ Triggers: `schedule` daily at 07:00 UTC, and `workflow_dispatch` with an optiona
 
 Permissions: `contents: write`, `pull-requests: write`, `issues: write`. Uses the built-in `GITHUB_TOKEN` only, with no extra secrets.
 
+Prerequisites, set once by the owner:
+
+- In Settings → Actions → General, enable "Allow GitHub Actions to create and approve pull requests". It is currently off, so `gh pr create` would fail.
+- Enable workflows once in the fork's Actions tab. Schedules are disabled on forks by default.
+- GitHub auto-disables schedules on public repos after 60 days without activity. `workflow_dispatch` is the fallback.
+
 Steps:
 
-1. Resolve the target tag: the `tag` input, else `gh release view -R socai-io/jev-social --json tagName`.
-2. **Exit without changes** if either condition holds:
-   - the tag's commit is already an ancestor of `main` (`git merge-base --is-ancestor`);
-   - an open PR from branch `sync/upstream-<tag>` exists.
-3. **Verify provenance** with `gh release verify <tag> -R socai-io/jev-social`. On failure, open an issue titled `Upstream release <tag> failed verification`, include the command output, and stop.
-4. Create branch `sync/upstream-<tag>` from `main`, fetch the upstream tag, and run `git merge --no-ff <tag>`.
-   - **Clean merge:** push the branch and open a PR titled `Sync upstream <tag>`. The PR body contains:
-     - the upstream release notes;
-     - the verification result;
-     - a warning line if the diff touches the pinned socai version (grep the diff for `socai` version strings in `README.md`, `skills/`, `src/onboard.js`).
-   - **Conflict:** abort the merge, push the branch at `main`, and open an issue titled `Upstream <tag> merge conflicts` that lists the conflicting files (`git diff --name-only --diff-filter=U`).
-5. Idempotency: steps 2 and 4 ensure that a rerun on the same tag never produces a second PR or issue. Before creating an issue, check for an open issue with the same title.
+1. Resolve the target tag: the `tag` input, else `gh release view -R socai-io/jev-social --json tagName`. Reject any tag that does not match `^v[0-9]+\.[0-9]+\.[0-9]+$` before using it in a shell command.
+2. Check out with `actions/checkout` and `fetch-depth: 0`. Fetch the tag with `git fetch --no-tags https://github.com/socai-io/jev-social.git refs/tags/<tag>:refs/tags/<tag>`. Upstream tags are annotated.
+3. **Exit without changes** if any of the following holds:
+   - `git merge-base --is-ancestor <tag>^{commit} origin/main`;
+   - `gh pr list --head sync/upstream-<tag> --state all` is non-empty. This counts closed PRs too, so a deliberately closed sync PR is not re-created, and a squash- or rebase-merged PR does not loop;
+   - `gh issue list --state all --search "<tag> in:title"` finds an issue this workflow created.
+4. **Verify provenance** with `gh release verify <tag> -R socai-io/jev-social`, retrying once. If it still fails, open an issue titled `Upstream release <tag> failed verification` with the output, and stop.
+5. Create branch `sync/upstream-<tag>` from `origin/main` and run `git merge --no-ff --no-edit -m "Sync upstream <tag>" <tag>`.
+   - **Clean merge:**
+     1. Run `npm ci && npm run check && npm test` on the merged tree. PRs opened with `GITHUB_TOKEN` do not trigger the fork's other workflows, so this is the only CI the PR gets.
+     2. Push the branch and open a PR titled `Sync upstream <tag>`, passing the body with `--body-file`. The body contains:
+        - the upstream release notes;
+        - the verification result;
+        - the test result, with the output tail on failure;
+        - a warning line if the diff matches `socai v?[0-9]+\.[0-9]+\.[0-9]+`;
+        - the instruction "merge with a merge commit (not squash/rebase)".
+   - **Conflict:** abort the merge and push nothing. Open an issue titled `Upstream <tag> merge conflicts` that lists the conflicting files (`git diff --name-only --diff-filter=U`) and gives the local commands to reproduce: fetch the tag, then merge.
 
 The job configures a git identity as `github-actions[bot]` for the merge commit.
 
@@ -62,7 +73,7 @@ jev-social profile <profile-url> --niche <slug> [--videos 12] [--deep 3]
 jev-social reports rebuild
 ```
 
-- `<profile-url>`: a `tiktok.com/@handle` or `instagram.com/handle` URL. The platform is inferred from the host. Other hosts are rejected.
+- `<profile-url>`: a `tiktok.com/@handle` or `instagram.com/handle` URL. The platform is inferred from the host. Other hosts are rejected. The handle must match `^[A-Za-z0-9._]{1,64}$` and must not be `.` or `..`, because it becomes a path segment.
 - `--niche`: lowercase slug `[a-z0-9-]{1,48}`. Required.
 - `--videos`: number of cards to collect. Range 1–50, default 12.
 - `--deep`: number of top-viewed items to read in detail with comments. Range 0–10, default 3.
@@ -83,7 +94,7 @@ Root: `${JEV_SOCIAL_REPORTS_DIR:-~/.jev-social/reports}`. The root sits outside 
         data.json
 ```
 
-A second run on the same day overwrites that day's folder. Directories are created with mode `0700` and files with mode `0600`, matching the existing `~/.jev-social` convention.
+A second run on the same day overwrites that day's folder. Directories are created with mode `0700` and files with mode `0600`. Files are written atomically (temp file, then rename), mirroring `writeConfig` in `src/config.js`.
 
 ### Architecture
 
@@ -131,19 +142,20 @@ Ports, as documented in a comment block at the top of `analyze.js`:
 - `medianViews`, and `viewsPerFollower = medianViews / followers`;
 - per item: `likeRate`, `shareRate`, `saveRate`, `commentRate`, each divided by views;
 - `outliers`: items whose views exceed 3 × `medianViews`;
-- `postsPerWeek`, computed over the collected items that have a `createdAt`.
+- `postsPerWeek = (n - 1) / spanWeeks` over the collected items that have a `createdAt`. It is `null` when n < 2.
 
 Any metric whose inputs are missing is `null`. Items without views are excluded from medians.
 
 ### Collector (socai)
 
-- Reuses the existing socai binary resolution (`resolveSocaiBin`) and process runner.
-- Spawns socai with `SOCAI_TELEMETRY=0`, `SOCAI_TELEMETRY_QUERY_TEXT=0`, and `SOCAI_NO_UPDATE_CHECK=1`.
-- **TikTok:**
-  1. `socai tiktok author <url> --num <videos>`;
+- Reuses the existing socai binary resolution (`resolveSocaiBin`). The collector receives an injected `runJson(args) → object` dependency. Its default is the socai JSON runner, which is exported from `src/socai.js` for this purpose; tests pass a fake.
+- Environment: `childEnvironment` in `src/process.js` already forwards `SOCAI_*` variables and forces `SOCAI_TELEMETRY=0`. The collector also sets `SOCAI_NO_UPDATE_CHECK=1`, and `SOCAI_TELEMETRY_QUERY_TEXT=off`, which is the value the existing tests use.
+- **TikTok:** arguments come from `buildActionArgs` in `src/actions.js`. `buildTikTokVideoArgs` is not reused, because it hardcodes `--download-media`.
+  1. `tiktok author <url> --num <videos>`;
   2. rank the collected cards by parsed views;
-  3. `socai tiktok get-videos --video <full URL>` for each of the top `deep` cards, with `--num-comments 8`. Full URLs are required, because bare IDs time out.
-- **Instagram:** `socai instagram profile <url> --num <videos> --deep <deep> --num-comments 8`. Instagram exposes no likes or views here, so these fields stay `null`.
+  3. `tiktok get-videos --video <full URL> --num-comments 8` for each of the top `deep` cards. Full URLs are required, because bare IDs time out.
+  - If `video_cards` is empty (for example, in the not-logged-in case), skip step 3.
+- **Instagram:** a new small builder produces `instagram profile <url> --num <videos> --deep <deep> --num-comments 8`. Instagram exposes no likes or views here, so these fields stay `null`. Comment text carries UI noise (for example `12 sem99 686 J'aimeRépondre`); strip the trailing relative-time, like-count, and reply/translate tokens.
 - Never passes `--transcribe-audio` or `--download-media`, and never calls `comment` or any write operation.
 - If the page reports a login gate or a challenge, or `ok:false` with `author_videos_incomplete`, the collector returns a snapshot with `partial: true` and the reason, keeping whatever profile data was captured. If no profile data at all is captured, it throws an `AppError` with a clear message: “log in to <platform> in the socai Chrome window, then retry”.
 
@@ -152,7 +164,7 @@ Any metric whose inputs are missing is `null`. Items without views are excluded 
 - Model: `OPENROUTER_REPORT_MODEL`, default `openai/gpt-4o-mini`. The value `off` disables the writer.
 - Input: a bounded, sanitised payload containing the metrics, plus per item the URL, caption (≤300 chars), stats, and up to 5 comments (≤200 chars each). No local paths and no raw socai JSON.
 - Output: 3–6 insights of the form `{ title, body, sources: [itemUrl…] }`.
-- Validation: each source must be an item URL from the snapshot, and each insight needs at least one source. Invalid insights are dropped. If none survive, the report shows a notice instead of insights. Follows the validation approach of `validateResearchReport` in `src/report.js`.
+- Validation: each source must be an item URL from the snapshot, and each insight needs at least one source. Invalid insights are dropped. If none survive, the report shows a notice instead of insights. `validateResearchReport` in `src/report.js` is Markdown-specific and is not reused. The payload is sanitised with `redactLocalPaths` and the `publicEvidence` pattern from `src/evidence.js`.
 - Timeout 30 s. On failure, the report is still written without insights, with a notice.
 
 ### Renderer (HTML)
@@ -178,7 +190,9 @@ Any metric whose inputs are missing is `null`. Items without views are excluded 
 
 ### Testing (offline, `node --test`)
 
-Fixtures in `test/fixtures/profile/` are trimmed and anonymised copies of today's TikTok author, get-videos, and Instagram deep-profile JSON.
+Fixtures in `test/fixtures/profile/` are trimmed copies of today's TikTok author, get-videos, and Instagram deep-profile JSON. Because the fork is public, the fixtures are anonymised: fake handles, fake commenter names, and no signed CDN URLs.
+
+The CLI extends `parseArgs` in `bin/jev-social.js` with `--niche`, `--videos`, and `--deep`, and adds the two-token command `reports rebuild` to the command chain.
 
 - `domain`: `parseCount` edge cases; metrics with null views and zero followers; the outlier threshold.
 - `socai-collector`: argument building; parsing the fixtures into `ProfileSnapshot`; the partial path on `author_videos_incomplete`. Uses a fake process runner.
