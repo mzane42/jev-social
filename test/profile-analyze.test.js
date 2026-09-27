@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { analyzeProfile, rebuildIndexes } from "../src/profile/analyze.js";
 
-function fakes({ insightsResult = [], insightsError = null } = {}) {
+function fakes({ insightsResult = [], insightsError = null, items } = {}) {
   const saved = [];
   const indexes = {};
   const collected = {
     profile: { displayName: "Demo", bio: null, followers: 100, likes: null, postCount: 1 },
-    items: [{ url: "https://www.tiktok.com/@demo_creator/video/1", kind: "video", caption: "c", createdAt: null, durationSeconds: null,
+    items: items || [{ url: "https://www.tiktok.com/@demo_creator/video/1", kind: "video", caption: "c", createdAt: null, durationSeconds: null,
       views: 500, likes: 50, comments: null, shares: null, saves: null, topComments: [] }],
     partial: false,
     partialReason: null,
@@ -56,6 +56,21 @@ test("insight problems never block the report", async () => {
     assert.equal(saved[0].insightNotice, notice);
     assert.deepEqual(saved[0].insights, []);
   }
+});
+
+test("analyzeProfile skips insights and never writes when nothing beyond item URLs was captured", async () => {
+  const { deps, saved } = fakes({
+    items: [
+      { url: "https://www.tiktok.com/@demo_creator/video/1", kind: "video", caption: null, createdAt: null, durationSeconds: null,
+        views: null, likes: null, comments: null, shares: null, saves: null, topComments: [] },
+      { url: "https://www.tiktok.com/@demo_creator/video/2", kind: "video", caption: "", createdAt: null, durationSeconds: null,
+        views: null, likes: null, comments: null, shares: null, saves: null, topComments: [] },
+    ],
+  });
+  deps.insights.write = () => assert.fail("insights.write must not be called");
+  await analyzeProfile(deps, { url: "https://www.tiktok.com/@demo_creator", niche: "football-anime" });
+  assert.equal(saved[0].insightNotice, "Insights skipped: nothing beyond item URLs was captured.");
+  assert.deepEqual(saved[0].insights, []);
 });
 
 test("analyzeProfile rejects bad input before collecting", async () => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { cleanInstagramComment, createSocaiCollector, normalizeInstagram, normalizeTikTok } from "../src/profile/adapters/socai-collector.js";
+import { cleanInstagramComment, createSocaiCollector, createSocaiRunJson, normalizeInstagram, normalizeTikTok } from "../src/profile/adapters/socai-collector.js";
 
 const fixture = async (name) => JSON.parse(await readFile(new URL(`./fixtures/profile/${name}`, import.meta.url), "utf8"));
 
@@ -24,7 +24,8 @@ test("TikTok collection reads the author, then top videos by full URL without do
     "--num-comments", "8", "--pretty",
   ]);
   assert.ok(calls.flat().every((arg) => !["--download-media", "--transcribe-audio"].includes(arg)));
-  assert.equal(result.partial, false);
+  assert.equal(result.partial, true);
+  assert.equal(result.partialReason, "deep reads failed: 1/2 completed (navigation_timeout)");
   assert.equal(result.items.length, 3);
 });
 
@@ -51,6 +52,22 @@ test("collection without any profile data asks the user to log in", async () => 
   );
 });
 
+test("collection with a challenge gate asks the user to log in", async () => {
+  const collector = createSocaiCollector({ async runJson() { return { ok: false, challenge_required: true }; } });
+  await assert.rejects(
+    collector.collect({ platform: "instagram", handle: "demo_ig", url: "https://www.instagram.com/demo_ig/", videos: 12, deep: 3 }),
+    { code: "PROFILE_LOGIN_REQUIRED" },
+  );
+});
+
+test("Instagram collection with no followers and no login gate reports profile not found", async () => {
+  const collector = createSocaiCollector({ async runJson() { return { ok: true, followers: null, posts: [] }; } });
+  await assert.rejects(
+    collector.collect({ platform: "instagram", handle: "demo_ig", url: "https://www.instagram.com/demo_ig/", videos: 12, deep: 3 }),
+    { code: "PROFILE_NOT_FOUND", message: "No profile data captured for @demo_ig: the account may be private or not exist." },
+  );
+});
+
 test("normalizeTikTok merges deep stats into cards and keeps unknowns null", async () => {
   const result = normalizeTikTok(await fixture("tiktok-author.json"), await fixture("tiktok-videos.json"));
   assert.deepEqual(result.profile, { displayName: "Demo Studio", bio: "Anime football highlights", followers: 53400, likes: 1_500_000, postCount: 82 });
@@ -60,12 +77,16 @@ test("normalizeTikTok merges deep stats into cards and keeps unknowns null", asy
     createdAt: "2026-07-05T22:28:27.000Z", durationSeconds: 33,
     views: 2_200_000, likes: 134_600, comments: 736, shares: 42_900, saves: 13_298,
     topComments: [{ text: "Someone will say this is AI.", likes: 601 }],
+    detailCaptured: true,
   });
   const shallow = result.items.find((item) => item.url.endsWith("/333"));
   assert.equal(shallow.views, 1215);
   assert.equal(shallow.likes, null);
   assert.equal(shallow.caption, "Derby");
   assert.equal(shallow.durationSeconds, null);
+  assert.equal(shallow.detailCaptured, false);
+  const failed = result.items.find((item) => item.url.endsWith("/111"));
+  assert.equal(failed.detailCaptured, false);
 });
 
 test("Instagram collection uses one profile call with deep reads", async () => {
@@ -87,7 +108,35 @@ test("normalizeInstagram keeps views and likes null and strips comment UI noise"
   assert.equal(reel.views, null);
   assert.equal(reel.likes, null);
   assert.deepEqual(reel.topComments, [{ text: "I want the whole series about this", likes: null }]);
+  assert.equal(reel.detailCaptured, true);
   assert.equal(post.caption, null);
   assert.deepEqual(post.topComments, []);
+  assert.equal(post.detailCaptured, false);
   assert.equal(cleanInstagramComment("ok\n3 j2 J'aimeRépondre"), "ok");
+});
+
+test("normalizeInstagram builds partialReason from deep_posts reasons when deep_status.ok is false", async () => {
+  const result = normalizeInstagram(await fixture("instagram-profile-deep-failed.json"));
+  assert.equal(result.partial, true);
+  assert.equal(result.partialReason, "deep reads failed: 0/3 completed (post_not_open)");
+});
+
+test("createSocaiRunJson forces telemetry off and accepts injectable resolveBin/run", async () => {
+  let resolveArgs;
+  let runArgs;
+  const runJson = createSocaiRunJson({
+    config: { some: "config" },
+    env: { PATH: "x" },
+    resolveBin: async (config, env) => { resolveArgs = { config, env }; return "/bin/socai"; },
+    run: async (bin, args, options) => { runArgs = { bin, args, options }; return { data: { ok: true } }; },
+  });
+  const result = await runJson(["status"], { signal: undefined });
+  assert.deepEqual(result, { ok: true });
+  assert.equal(runArgs.bin, "/bin/socai");
+  assert.deepEqual(runArgs.args, ["status"]);
+  assert.equal(runArgs.options.env.SOCAI_TELEMETRY, "0");
+  assert.equal(runArgs.options.env.SOCAI_TELEMETRY_QUERY_TEXT, "off");
+  assert.equal(runArgs.options.env.SOCAI_NO_UPDATE_CHECK, "1");
+  assert.equal(resolveArgs.env.SOCAI_TELEMETRY, "0");
+  assert.equal(resolveArgs.config.some, "config");
 });

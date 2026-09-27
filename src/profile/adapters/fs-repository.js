@@ -26,9 +26,10 @@ async function listDirs(dir) {
 }
 
 export function createFsRepository({ root }) {
+  const base = path.resolve(root);
   const inside = (...parts) => {
-    const target = path.resolve(root, ...parts);
-    if (target !== root && !target.startsWith(`${path.resolve(root)}${path.sep}`)) {
+    const target = path.resolve(base, ...parts);
+    if (target !== base && !target.startsWith(`${base}${path.sep}`)) {
       throw new AppError("Report path escapes the reports directory.", { code: "INVALID_PROFILE_INPUT" });
     }
     return target;
@@ -43,15 +44,17 @@ export function createFsRepository({ root }) {
     },
     async listLatest() {
       const results = [];
-      for (const niche of await listDirs(root)) {
+      for (const niche of await listDirs(base)) {
         for (const account of await listDirs(inside(niche))) {
           const date = (await listDirs(inside(niche, account))).at(-1);
           if (!date) continue;
+          const relativePath = path.join(niche, account, date, "data.json");
           try {
             const data = JSON.parse(await readFile(inside(niche, account, date, "data.json"), "utf8"));
             results.push({ niche, account, date, href: `${account}/${date}/report.html`, data });
           } catch (error) {
-            if (error?.code !== "ENOENT") throw error;
+            if (error?.code === "ENOENT") continue;
+            console.error(relativePath);
           }
         }
       }

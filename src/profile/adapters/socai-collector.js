@@ -5,11 +5,11 @@ import { parseCount } from "../domain.js";
 
 const TIKTOK_VIDEO_URL = /^https:\/\/www\.tiktok\.com\/@[\w.]+\/video\/\d+$/;
 
-export function createSocaiRunJson({ config = {}, env = process.env } = {}) {
+export function createSocaiRunJson({ config = {}, env = process.env, resolveBin = resolveSocaiBin, run = runSocaiJson } = {}) {
   const childEnv = { ...env, SOCAI_TELEMETRY: "0", SOCAI_TELEMETRY_QUERY_TEXT: "off", SOCAI_NO_UPDATE_CHECK: "1" };
   return async (args, { signal } = {}) => {
-    const bin = await resolveSocaiBin(config, childEnv);
-    return (await runSocaiJson(bin, args, { env: childEnv, signal })).data;
+    const bin = await resolveBin(config, childEnv);
+    return (await run(bin, args, { env: childEnv, signal })).data;
   };
 }
 
@@ -20,9 +20,16 @@ function loginRequired(platform) {
   });
 }
 
+function profileNotFound(handle) {
+  return new AppError(`No profile data captured for @${handle}: the account may be private or not exist.`, {
+    code: "PROFILE_NOT_FOUND",
+    status: 404,
+  });
+}
+
 export function createSocaiCollector({ runJson }) {
   return {
-    async collect({ platform, url, videos, deep, signal }) {
+    async collect({ platform, handle, url, videos, deep, signal }) {
       if (platform === "tiktok") {
         const author = await runJson(buildActionArgs({ platform, kind: "read_profile", target: url, limit: videos }), { signal });
         if (!author?.profile) throw loginRequired(platform);
@@ -39,7 +46,8 @@ export function createSocaiCollector({ runJson }) {
         ["instagram", "profile", url, "--num", String(videos), "--deep", String(deep), "--num-comments", "8", "--pretty"],
         { signal },
       );
-      if (!raw || raw.followers == null) throw loginRequired(platform);
+      if (raw?.login_required || raw?.challenge_required) throw loginRequired(platform);
+      if (raw?.followers == null) throw profileNotFound(handle);
       return normalizeInstagram(raw);
     },
   };
@@ -55,6 +63,7 @@ export function normalizeTikTok(author, videos) {
     (videos?.videos || []).filter((video) => video?.ok !== false && video?.entity).map((video) => [String(video.entity.video_id), video.entity]),
   );
   const items = (profile.video_cards || []).map((card) => {
+    const detailCaptured = deep.has(String(card.video_id));
     const detail = deep.get(String(card.video_id)) || {};
     return {
       url: card.url,
@@ -70,9 +79,22 @@ export function normalizeTikTok(author, videos) {
       topComments: (detail.top_comments || [])
         .map((entry) => comment(String(entry?.text || "").trim(), entry?.likes))
         .filter((entry) => entry.text),
+      detailCaptured,
     };
   });
-  const partial = author?.ok === false;
+  const videoList = videos?.videos || [];
+  const videosPartial = (videos?.failures ?? 0) > 0 || videoList.some((video) => video?.ok === false);
+  const partial = author?.ok === false || videosPartial;
+  let partialReason = null;
+  if (partial) {
+    if (author?.ok === false) {
+      partialReason = String(author.reason || "incomplete");
+    } else {
+      const okCount = videoList.filter((video) => video?.ok !== false).length;
+      const reasons = [...new Set(videoList.filter((video) => video?.ok === false).map((video) => video.reason || "unknown"))];
+      partialReason = `deep reads failed: ${okCount}/${videoList.length} completed (${reasons.join(", ")})`;
+    }
+  }
   return {
     profile: {
       displayName: profile.display_name ?? null,
@@ -83,7 +105,7 @@ export function normalizeTikTok(author, videos) {
     },
     items,
     partial,
-    partialReason: partial ? String(author.reason || "incomplete") : null,
+    partialReason,
   };
 }
 
@@ -91,6 +113,15 @@ export function cleanInstagramComment(text) {
   // ponytail: Instagram appends "<age><likes> J'aime Répondre" and "Voir la traduction" on
   // following lines; keeping the first line drops them. Multi-line comments lose later lines.
   return String(text || "").split("\n")[0].trim();
+}
+
+function instagramPartialReason(raw) {
+  if (raw?.reason) return String(raw.reason);
+  if (raw?.deep_status?.ok === false) {
+    const reasons = [...new Set((raw.deep_posts || []).filter((post) => post?.ok === false).map((post) => post.reason || "unknown"))];
+    return `deep reads failed: ${raw.deep_status.completed}/${raw.deep_status.attempted} completed (${reasons.join(", ")})`;
+  }
+  return "incomplete";
 }
 
 export function normalizeInstagram(raw) {
@@ -112,6 +143,7 @@ export function normalizeInstagram(raw) {
       topComments: (detail?.comments || [])
         .map((entry) => comment(cleanInstagramComment(entry?.text), entry?.likes))
         .filter((entry) => entry.text),
+      detailCaptured: Boolean(detail?.entity),
     };
   });
   const partial = raw?.ok === false || raw?.deep_status?.ok === false;
@@ -125,6 +157,6 @@ export function normalizeInstagram(raw) {
     },
     items,
     partial,
-    partialReason: partial ? String(raw?.reason || "incomplete") : null,
+    partialReason: partial ? instagramPartialReason(raw) : null,
   };
 }

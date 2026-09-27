@@ -1,0 +1,16 @@
+{
+  "display_name": "Demo IG",
+  "bio": "",
+  "followers": 12000,
+  "posts": [
+    { "id": "AAA", "kind": "reel", "url": "https://www.instagram.com/demo_ig/reel/AAA/" },
+    { "id": "BBB", "kind": "post", "url": "https://www.instagram.com/demo_ig/p/BBB/" },
+    { "id": "CCC", "kind": "post", "url": "https://www.instagram.com/demo_ig/p/CCC/" }
+  ],
+  "deep_status": { "attempted": 3, "completed": 0, "ok": false, "requested": 3 },
+  "deep_posts": [
+    { "ok": false, "locator": "https://www.instagram.com/demo_ig/reel/AAA/", "reason": "post_not_open" },
+    { "ok": false, "locator": "https://www.instagram.com/demo_ig/p/BBB/", "reason": "post_not_open" },
+    { "ok": false, "locator": "https://www.instagram.com/demo_ig/p/CCC/", "reason": "post_not_open" }
+  ]
+}

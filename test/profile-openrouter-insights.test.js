@@ -22,6 +22,22 @@ test("buildInsightPayload is bounded and path-free", () => {
   assert.equal(payload.metrics.medianViews, 100);
 });
 
+test("buildInsightPayload omits fields that were not captured instead of sending null", () => {
+  const uncaptured = {
+    ...snapshot,
+    items: [
+      { url: "https://www.tiktok.com/@demo_creator/video/2", kind: "video", caption: null, createdAt: null, durationSeconds: null,
+        views: null, likes: null, comments: null, shares: null, saves: null, topComments: [] },
+    ],
+  };
+  const payload = buildInsightPayload(uncaptured, metrics);
+  const item = payload.items[0];
+  assert.deepEqual(Object.keys(item).sort(), ["url"]);
+  assert.ok(!("caption" in item));
+  assert.ok(!("views" in item));
+  assert.ok(!("topComments" in item));
+});
+
 test("validateInsights keeps only insights citing captured items", () => {
   const url = snapshot.items[0].url;
   const result = validateInsights({
@@ -34,6 +50,24 @@ test("validateInsights keeps only insights citing captured items", () => {
   }, snapshot);
   assert.deepEqual(result, [{ title: "Good", body: "Cited", sources: [url] }]);
   assert.deepEqual(validateInsights("garbage", snapshot), []);
+});
+
+test("validateInsights filters invalid entries before capping at 6 and caps sources at 5", () => {
+  const okSnapshot = {
+    ...snapshot,
+    items: Array.from({ length: 8 }, (_, index) => ({ ...snapshot.items[0], url: `https://www.tiktok.com/@demo_creator/video/${index}` })),
+  };
+  const urls = okSnapshot.items.map((item) => item.url);
+  const raw = {
+    insights: [
+      { title: "", body: "invalid, dropped", sources: [urls[0]] },
+      ...Array.from({ length: 7 }, (_, index) => ({ title: `Insight ${index}`, body: "b", sources: urls })),
+    ],
+  };
+  const result = validateInsights(raw, okSnapshot);
+  assert.equal(result.length, 6);
+  assert.deepEqual(result.map((entry) => entry.title), ["Insight 0", "Insight 1", "Insight 2", "Insight 3", "Insight 4", "Insight 5"]);
+  assert.ok(result.every((entry) => entry.sources.length === 5));
 });
 
 test("write returns null when disabled and never calls the network", async () => {
@@ -55,6 +89,7 @@ test("write parses the model JSON and validates citations", async () => {
   assert.equal(request.body.model, "openai/gpt-4o-mini");
   assert.deepEqual(request.body.response_format, { type: "json_object" });
   assert.equal(request.auth, "Bearer k");
+  assert.match(request.body.messages[0].content, /never infer the creator omitted it or that it is zero/);
   assert.deepEqual(insights, [{ title: "Hook", body: "Works", sources: [url] }]);
 });
 

@@ -5,6 +5,17 @@
 //   render.report(record) / render.nicheIndex(niche, entries) / render.rootIndex(niches) → html
 import { computeMetrics, parseProfileUrl, validateNiche, validateRange } from "./domain.js";
 
+function hasCapturedDetail(items) {
+  return items.some((item) =>
+    item.caption ||
+    item.topComments?.length ||
+    item.views != null ||
+    item.likes != null ||
+    item.comments != null ||
+    item.shares != null ||
+    item.saves != null);
+}
+
 export async function analyzeProfile(deps, { url, niche, videos = 12, deep = 3, signal }) {
   const { collector, insights, repository, render, version, now = () => new Date() } = deps;
   const target = parseProfileUrl(url);
@@ -18,13 +29,17 @@ export async function analyzeProfile(deps, { url, niche, videos = 12, deep = 3, 
 
   let list = [];
   let insightNotice = null;
-  try {
-    const written = await insights.write({ snapshot, metrics, signal });
-    if (written === null) insightNotice = "Insights disabled (OPENROUTER_REPORT_MODEL=off or no API key).";
-    else if (!written.length) insightNotice = "No cited insights were produced.";
-    else list = written;
-  } catch (error) {
-    insightNotice = `Insights unavailable: ${error.message}`;
+  if (!hasCapturedDetail(snapshot.items)) {
+    insightNotice = "Insights skipped: nothing beyond item URLs was captured.";
+  } else {
+    try {
+      const written = await insights.write({ snapshot, metrics, signal });
+      if (written === null) insightNotice = "Insights disabled (OPENROUTER_REPORT_MODEL=off or no API key).";
+      else if (!written.length) insightNotice = "No cited insights were produced.";
+      else list = written;
+    } catch (error) {
+      insightNotice = `Insights unavailable: ${error.message}`;
+    }
   }
 
   const record = { snapshot, metrics, insights: list, insightNotice };

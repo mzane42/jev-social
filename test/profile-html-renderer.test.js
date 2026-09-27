@@ -102,6 +102,19 @@ test("data-v attribute hardened against non-finite values (fix #3)", () => {
   assert.match(html, /data-v="-1"/);
 });
 
+test("items with detailCaptured === false show a muted not-read marker", () => {
+  const testSnapshot = {
+    ...snapshot,
+    items: [
+      { ...snapshot.items[0], detailCaptured: true },
+      { ...snapshot.items[1], detailCaptured: false },
+    ],
+  };
+  const html = renderReport({ snapshot: testSnapshot, metrics, version: "0.1.10" });
+  const markers = html.match(/<span class="muted">\(not read\)<\/span>/g) || [];
+  assert.equal(markers.length, 1);
+});
+
 test("footer contains version and capture time (fix #4)", () => {
   const html = renderReport({
     snapshot, metrics, version: "0.1.10",

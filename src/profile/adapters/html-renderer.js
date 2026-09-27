@@ -66,7 +66,8 @@ export function renderReport({ snapshot, metrics, insights = [], insightNotice =
   const name = profile.displayName || `@${snapshot.handle}`;
   const rows = snapshot.items.map((item, index) => {
     const rate = rates.get(item.url) || {};
-    return `<tr><td class="n" data-v="${index + 1}">${index + 1}</td><td>${link(item.url, (item.caption || item.url).slice(0, 90))}</td>${numCell(item.views, num)}${numCell(item.likes, num)}${numCell(item.shares, num)}${numCell(item.saves, num)}${numCell(item.comments, num)}${numCell(rate.likeRate, pct)}${numCell(rate.shareRate, pct)}<td>${escapeHtml(item.createdAt ? item.createdAt.slice(0, 10) : "n/a")}</td></tr>`;
+    const notRead = item.detailCaptured === false ? ` <span class="muted">(not read)</span>` : "";
+    return `<tr><td class="n" data-v="${index + 1}">${index + 1}</td><td>${link(item.url, (item.caption || item.url).slice(0, 90))}${notRead}</td>${numCell(item.views, num)}${numCell(item.likes, num)}${numCell(item.shares, num)}${numCell(item.saves, num)}${numCell(item.comments, num)}${numCell(rate.likeRate, pct)}${numCell(rate.shareRate, pct)}<td>${escapeHtml(item.createdAt ? item.createdAt.slice(0, 10) : "n/a")}</td></tr>`;
   }).join("");
   const comments = snapshot.items.flatMap((item) => item.topComments.map((entry) => ({ ...entry, url: item.url })))
     .sort((a, b) => (b.likes ?? -1) - (a.likes ?? -1)).slice(0, 12)
