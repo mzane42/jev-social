@@ -2,7 +2,7 @@
 
 Date: 2026-09-27 · Fork: `mzane42/jev-social` · Upstream: `socai-io/jev-social`
 
-Two independent additions to the fork. Build them in order: A first, then B.
+Two independent additions to the fork. **B is built first. A is deferred**: its spec is kept here for later, and it is not in the current implementation plan.
 
 ## A. Upstream release sync (GitHub Actions)
 
