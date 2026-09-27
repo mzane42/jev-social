@@ -155,7 +155,7 @@ Any metric whose inputs are missing is `null`. Items without views are excluded 
   2. rank the collected cards by parsed views;
   3. `tiktok get-videos --video <full URL> --num-comments 8` for each of the top `deep` cards. Full URLs are required, because bare IDs time out.
   - If `video_cards` is empty (for example, in the not-logged-in case), skip step 3.
-- **Instagram:** a new small builder produces `instagram profile <url> --num <videos> --deep <deep> --num-comments 8`. Instagram exposes no likes or views here, so these fields stay `null`. Comment text carries UI noise (for example `12 sem99 686 J'aimeRépondre`); strip the trailing relative-time, like-count, and reply/translate tokens.
+- **Instagram:** a new small builder produces `instagram profile <url> --num <videos> --deep <deep> --num-comments 8`. Instagram exposes no likes or views here, so these fields stay `null`. Comment text carries UI noise (for example `12 sem99 686 J'aimeRépondre`); keep only the first line of each comment, which drops that trailer.
 - Never passes `--transcribe-audio` or `--download-media`, and never calls `comment` or any write operation.
 - If the page reports a login gate or a challenge, or `ok:false` with `author_videos_incomplete`, the collector returns a snapshot with `partial: true` and the reason, keeping whatever profile data was captured. If no profile data at all is captured, it throws an `AppError` with a clear message: “log in to <platform> in the socai Chrome window, then retry”.
 
