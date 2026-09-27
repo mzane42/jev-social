@@ -1,0 +1,50 @@
+// Ports (see docs/superpowers/specs/2026-09-27-upstream-sync-and-niche-reports-design.md, part B):
+//   collector.collect({ platform, handle, url, videos, deep, signal }) → { profile, items, partial, partialReason }
+//   insights.write({ snapshot, metrics, signal }) → Insight[] | null (null = disabled)
+//   repository.save(record) → { dir }; repository.listLatest() → entries; repository.writeIndex(relPath, html)
+//   render.report(record) / render.nicheIndex(niche, entries) / render.rootIndex(niches) → html
+import { computeMetrics, parseProfileUrl, validateNiche, validateRange } from "./domain.js";
+
+export async function analyzeProfile(deps, { url, niche, videos = 12, deep = 3, signal }) {
+  const { collector, insights, repository, render, version, now = () => new Date() } = deps;
+  const target = parseProfileUrl(url);
+  validateNiche(niche);
+  validateRange("--videos", videos, 1, 50);
+  validateRange("--deep", deep, 0, 10);
+
+  const collected = await collector.collect({ ...target, videos, deep, signal });
+  const snapshot = { platform: target.platform, handle: target.handle, niche, url: target.url, capturedAt: now().toISOString(), ...collected };
+  const metrics = computeMetrics(snapshot);
+
+  let list = [];
+  let insightNotice = null;
+  try {
+    const written = await insights.write({ snapshot, metrics, signal });
+    if (written === null) insightNotice = "Insights disabled (OPENROUTER_REPORT_MODEL=off or no API key).";
+    else if (!written.length) insightNotice = "No cited insights were produced.";
+    else list = written;
+  } catch (error) {
+    insightNotice = `Insights unavailable: ${error.message}`;
+  }
+
+  const record = { snapshot, metrics, insights: list, insightNotice };
+  const { dir } = await repository.save({ ...record, html: render.report({ ...record, version }) });
+  await rebuildIndexes({ repository, render });
+  return { dir, snapshot, metrics, insights: list };
+}
+
+export async function rebuildIndexes({ repository, render }) {
+  const byNiche = new Map();
+  for (const entry of await repository.listLatest()) {
+    if (!byNiche.has(entry.niche)) byNiche.set(entry.niche, []);
+    byNiche.get(entry.niche).push(entry);
+  }
+  const summary = [];
+  for (const [niche, entries] of byNiche) {
+    await repository.writeIndex(`${niche}/index.html`, render.nicheIndex(niche, entries.map(({ href, data }) => ({ href, snapshot: data.snapshot, metrics: data.metrics }))));
+    const updatedAt = entries.map(({ data }) => data.snapshot.capturedAt).sort().at(-1);
+    summary.push({ niche, accounts: entries.length, updatedAt });
+  }
+  await repository.writeIndex("index.html", render.rootIndex(summary));
+  return { niches: summary.length, accounts: summary.reduce((total, entry) => total + entry.accounts, 0) };
+}
