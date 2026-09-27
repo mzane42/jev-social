@@ -9,6 +9,13 @@ import { loadLocalEnv } from "../src/env.js";
 import { saveOnboarding } from "../src/onboard.js";
 import { probeSocai } from "../src/socai.js";
 import { startServer } from "../src/server.js";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { analyzeProfile, rebuildIndexes } from "../src/profile/analyze.js";
+import { createFsRepository, reportsRoot } from "../src/profile/adapters/fs-repository.js";
+import { renderNicheIndex, renderReport, renderRootIndex } from "../src/profile/adapters/html-renderer.js";
+import { createOpenRouterInsights } from "../src/profile/adapters/openrouter-insights.js";
+import { createSocaiCollector, createSocaiRunJson } from "../src/profile/adapters/socai-collector.js";
 
 const HELP = `jev-social — Jev-directed social research through socai CLI
 
@@ -18,11 +25,19 @@ Usage:
   jev-social status                               Show local readiness
   jev-social search <query> [options]             Run one search
   jev-social serve [--port 8766] [--no-open]      Start local preview
+  jev-social profile <url> --niche <slug>          Analyse a TikTok/Instagram profile into an HTML report
+  jev-social reports rebuild                      Regenerate report index pages
 
 Search options:
   --platform <auto|instagram|tiktok|linkedin>  Platform hint (default: auto)
   --limit <1-100>                      Result limit (default: 10)
   --max-steps <1-30>                   Decision budget (default: 12)
+
+Profile options:
+  --niche <slug>                       Niche folder, e.g. football-anime (required)
+  --videos <1-50>                      Items to collect (default: 12)
+  --deep <0-10>                        Top items read with comments (default: 3)
+  Reports go to $JEV_SOCIAL_REPORTS_DIR or ~/.jev-social/reports
 
 Configuration (normally auto-loaded from .env):
   --api-key <key>                      OpenRouter API key (prompt is safer)
@@ -75,6 +90,21 @@ try {
       },
     );
     console.log(JSON.stringify(run, null, 2));
+  } else if (command === "profile") {
+    const flags = parseArgs(rest);
+    const deps = await profileDeps();
+    const result = await analyzeProfile(deps, {
+      url: flags._[0],
+      niche: flags.niche,
+      videos: Number(flags.videos ?? 12),
+      deep: Number(flags.deep ?? 3),
+    });
+    if (result.snapshot.partial) console.error(`Partial capture: ${result.snapshot.partialReason}`);
+    console.log(path.join(result.dir, "report.html"));
+  } else if (command === "reports" && rest[0] === "rebuild") {
+    const deps = await profileDeps();
+    const counts = await rebuildIndexes(deps);
+    console.log(`${counts.niches} niches, ${counts.accounts} accounts → ${path.join(reportsRoot(), "index.html")}`);
   } else {
     throw new Error(`Unknown command: ${command}\n\n${HELP}`);
   }
@@ -82,6 +112,21 @@ try {
   console.error(`jev-social: ${error.message}`);
   if (error.details) console.error(JSON.stringify(error.details, null, 2));
   process.exitCode = 1;
+}
+
+async function profileDeps() {
+  const config = await readConfig();
+  const { version } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  return {
+    version,
+    collector: createSocaiCollector({ runJson: createSocaiRunJson({ config }) }),
+    insights: createOpenRouterInsights({
+      apiKey: resolveApiKey(config),
+      model: String(process.env.OPENROUTER_REPORT_MODEL || "openai/gpt-4o-mini").trim(),
+    }),
+    repository: createFsRepository({ root: reportsRoot() }),
+    render: { report: renderReport, nicheIndex: renderNicheIndex, rootIndex: renderRootIndex },
+  };
 }
 
 async function onboard(flags) {
@@ -143,6 +188,9 @@ function parseArgs(args) {
     ["--port", "port"],
     ["--api-key", "apiKey"],
     ["--socai-bin", "socaiBin"],
+    ["--niche", "niche"],
+    ["--videos", "videos"],
+    ["--deep", "deep"],
   ]);
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
