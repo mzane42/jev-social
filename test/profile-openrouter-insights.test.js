@@ -38,6 +38,14 @@ test("buildInsightPayload omits fields that were not captured instead of sending
   assert.ok(!("topComments" in item));
 });
 
+test("buildInsightPayload keeps a captured zero, only null is dropped", () => {
+  const zero = { ...snapshot, items: [{ ...snapshot.items[0], shares: 0, saves: 0, comments: 0 }] };
+  const item = buildInsightPayload(zero, metrics).items[0];
+  assert.equal(item.shares, 0);
+  assert.equal(item.saves, 0);
+  assert.equal(item.comments, 0);
+});
+
 test("validateInsights keeps only insights citing captured items", () => {
   const url = snapshot.items[0].url;
   const result = validateInsights({

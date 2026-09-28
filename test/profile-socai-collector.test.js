@@ -44,6 +44,44 @@ test("TikTok collection skips the deep step when no cards were captured", async 
   assert.equal(result.profile.followers, 53400);
 });
 
+test("TikTok author page that never hydrates reports not found with the socai reason, not a login", async () => {
+  const observed = { handle: "recette1min", login_required: false, challenge_required: false, unavailable: false, author_internal_id: "" };
+  const collector = createSocaiCollector({
+    async runJson() { return { ok: false, reason: "navigation_timeout", state: { observed_state: observed } }; },
+  });
+  await assert.rejects(
+    collector.collect({ platform: "tiktok", handle: "recette1min", url: "https://www.tiktok.com/@recette1min", videos: 12, deep: 3 }),
+    { code: "PROFILE_NOT_FOUND", message: "No profile data captured for @recette1min (socai: navigation_timeout): the account may be private or not exist." },
+  );
+});
+
+test("TikTok author page behind a login gate asks the user to log in", async () => {
+  const collector = createSocaiCollector({
+    async runJson() { return { ok: false, reason: "login_required", state: { observed_state: { login_required: true } } }; },
+  });
+  await assert.rejects(
+    collector.collect({ platform: "tiktok", handle: "demo_creator", url: "https://www.tiktok.com/@demo_creator", videos: 12, deep: 3 }),
+    { code: "PROFILE_LOGIN_REQUIRED" },
+  );
+});
+
+test("TikTok empty capture keeps followers and likes unknown instead of zero", async () => {
+  const collector = createSocaiCollector({
+    async runJson() {
+      return { ok: false, reason: "author_videos_incomplete", profile: { followers: "0", likes: "0", video_count: "", video_cards: [] } };
+    },
+  });
+  const result = await collector.collect({ platform: "tiktok", handle: "yummyaccount", url: "https://www.tiktok.com/@yummyaccount", videos: 12, deep: 3 });
+  assert.equal(result.profile.followers, null);
+  assert.equal(result.profile.likes, null);
+  assert.equal(normalizeTikTok({ ok: true, profile: { followers: "0", video_count: "0" } }).profile.followers, 0);
+});
+
+test("TikTok deep step that fails without returning any video names the failure count, not 0/0", () => {
+  const result = normalizeTikTok({ ok: true, profile: { video_cards: [] } }, { failures: 2, videos: [] });
+  assert.equal(result.partialReason, "deep reads failed: 2 failure(s), no video returned");
+});
+
 test("collection without any profile data asks the user to log in", async () => {
   const collector = createSocaiCollector({ async runJson() { return { ok: false, login_required: true }; } });
   await assert.rejects(
