@@ -33,6 +33,10 @@ interface ReportEntry {
 
 type Row = Record<string, string | number | null>
 
+function hasTable(db: DatabaseSync, name: string): boolean {
+  return Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name))
+}
+
 function readReports(): ReportEntry[] {
   let db: DatabaseSync
   try {
@@ -59,7 +63,8 @@ function readReports(): ReportEntry[] {
       ]),
     )
     const media = new Map(
-      (db.prepare('SELECT * FROM media').all() as Row[]).map((m) => [
+      // The media table appears on the first `jev-social media` run; older databases lack it.
+      (hasTable(db, 'media') ? (db.prepare('SELECT * FROM media').all() as Row[]) : []).map((m) => [
         `${m.niche}\n${m.url}`,
         {
           hookType: m.hook_type,
@@ -93,7 +98,7 @@ function readFrame(url: string, n: number): Buffer | null {
     return null
   }
   try {
-    const row = db.prepare('SELECT frames FROM media WHERE url = ?').get(url) as Row | undefined
+    const row = hasTable(db, 'media') ? (db.prepare('SELECT frames FROM media WHERE url = ?').get(url) as Row | undefined) : undefined
     const file = row ? (JSON.parse(String(row.frames || '[]')) as string[])[n] : undefined
     if (!file) return null
     const real = realpathSync(file)
