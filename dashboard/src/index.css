@@ -1,0 +1,111 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ---------- Jev Social design tokens (dark only) ---------- */
+:root {
+  --bg: #0b0b0f;
+  --surface: #14141b;
+  --surface-2: #1c1c26;
+  --line: #2a2a36;
+  --text: #f4f4f6;
+  --muted: #8b8b9a;
+  --accent: #ff3d6e;
+  --cyan: #2ee6d6;
+  --amber: #ffb547;
+  --violet: #8b7cff;
+  --good: #3ddc84;
+
+  color-scheme: dark;
+  --radius: 0.625rem;
+}
+
+/*
+ * Tailwind utilities. Names avoid shadcn's `accent`/`muted` semantics:
+ * bg-bg, bg-surface, bg-surface-2, border-line, text-fg, text-dim,
+ * text-brand / bg-brand, text-cyan, text-amber, text-violet, text-good.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-fg: var(--text);
+  --color-dim: var(--muted);
+  --color-brand: var(--accent);
+  --color-cyan: var(--cyan);
+  --color-amber: var(--amber);
+  --color-violet: var(--violet);
+  --color-good: var(--good);
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Space Grotesk Variable", "Inter Variable", sans-serif;
+  --font-display: "Space Grotesk Variable", "Inter Variable", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  /* shadcn semantic colours mapped onto the tokens */
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface-2);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--surface-2);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--accent);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--violet);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: 16px;
+  --radius-card: 16px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    background: var(--bg);
+  }
+  body {
+    @apply bg-bg text-fg antialiased;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Recharts: no focus outline box on click */
+.recharts-wrapper *:focus { outline: none; }

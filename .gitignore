@@ -5,3 +5,7 @@ npm-debug.log*
 coverage/
 *.tgz
 .tmp-reports/
+
+# dashboard
+dashboard/node_modules/
+dashboard/dist/
