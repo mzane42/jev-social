@@ -87,3 +87,21 @@ test("rebuildIndexes reports counts", async () => {
   await analyzeProfile(deps, { url: "https://www.tiktok.com/@demo_creator", niche: "football-anime" });
   assert.deepEqual(await rebuildIndexes(deps), { niches: 1, accounts: 1 });
 });
+
+test("analyzeProfile falls back from TikTok to Instagram only when TikTok reports not found", async () => {
+  const { deps, saved } = fakes();
+  const tried = [];
+  const inner = deps.collector.collect;
+  deps.collector.collect = async (request) => {
+    tried.push(request.platform);
+    if (request.platform === "tiktok") throw Object.assign(new Error("nf"), { code: "PROFILE_NOT_FOUND" });
+    return inner(request);
+  };
+  await analyzeProfile(deps, { url: "@demo.ig", niche: "cuisine" });
+  assert.deepEqual(tried, ["tiktok", "instagram"]);
+  assert.equal(saved[0].snapshot.platform, "instagram");
+  assert.equal(saved[0].snapshot.url, "https://www.instagram.com/demo.ig/");
+
+  deps.collector.collect = async () => { throw Object.assign(new Error("login"), { code: "PROFILE_LOGIN_REQUIRED" }); };
+  await assert.rejects(analyzeProfile(deps, { url: "@demo.ig", niche: "cuisine" }), { code: "PROFILE_LOGIN_REQUIRED" });
+});

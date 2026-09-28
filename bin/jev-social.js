@@ -25,7 +25,7 @@ Usage:
   jev-social status                               Show local readiness
   jev-social search <query> [options]             Run one search
   jev-social serve [--port 8766] [--no-open]      Start local preview
-  jev-social profile <url> --niche <slug>         Analyse a TikTok/Instagram profile into an HTML report
+  jev-social profile <url|@handle> --niche <s>    Analyse a TikTok/Instagram profile (bare @handle: TikTok, then Instagram)
   jev-social reports rebuild                      Regenerate report index pages
 
 Search options:

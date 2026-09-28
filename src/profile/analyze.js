@@ -3,7 +3,7 @@
 //   insights.write({ snapshot, metrics, signal }) → Insight[] | null (null = disabled)
 //   repository.save(record) → { dir }; repository.listLatest() → entries; repository.writeIndex(relPath, html)
 //   render.report(record) / render.nicheIndex(niche, entries) / render.rootIndex(niches) → html
-import { computeMetrics, parseProfileUrl, validateNiche, validateRange } from "./domain.js";
+import { computeMetrics, parseProfileTargets, validateNiche, validateRange } from "./domain.js";
 
 function hasCapturedDetail(items) {
   return items.some((item) =>
@@ -18,12 +18,22 @@ function hasCapturedDetail(items) {
 
 export async function analyzeProfile(deps, { url, niche, videos = 12, deep = 3, signal }) {
   const { collector, insights, repository, render, version, now = () => new Date() } = deps;
-  const target = parseProfileUrl(url);
+  const targets = parseProfileTargets(url);
   validateNiche(niche);
   validateRange("--videos", videos, 1, 50);
   validateRange("--deep", deep, 0, 10);
 
-  const collected = await collector.collect({ ...target, videos, deep, signal });
+  let target;
+  let collected;
+  for (const [index, candidate] of targets.entries()) {
+    try {
+      collected = await collector.collect({ ...candidate, videos, deep, signal });
+      target = candidate;
+      break;
+    } catch (error) {
+      if (error?.code !== "PROFILE_NOT_FOUND" || index === targets.length - 1) throw error;
+    }
+  }
   const snapshot = { platform: target.platform, handle: target.handle, niche, url: target.url, capturedAt: now().toISOString(), ...collected };
   const metrics = computeMetrics(snapshot);
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { computeMetrics, parseCount, parseProfileUrl, validateNiche, validateRange } from "../src/profile/domain.js";
+import { computeMetrics, parseCount, parseProfileTargets, parseProfileUrl, validateNiche, validateRange } from "../src/profile/domain.js";
 
 test("parseCount reads socai count strings", () => {
   assert.equal(parseCount("2.2M"), 2_200_000);
@@ -70,4 +70,11 @@ test("computeMetrics returns nulls when inputs are missing", () => {
   assert.equal(metrics.bestItemUrl, null);
   assert.deepEqual(metrics.outliers, []);
   assert.equal(metrics.postsPerWeek, null);
+});
+
+test("parseProfileTargets tries TikTok then Instagram for a bare handle, and keeps URLs as-is", () => {
+  assert.deepEqual(parseProfileTargets("@demo.ig").map((target) => target.url), ["https://www.tiktok.com/@demo.ig", "https://www.instagram.com/demo.ig/"]);
+  assert.deepEqual(parseProfileTargets("demo_creator").map((target) => target.platform), ["tiktok", "instagram"]);
+  assert.deepEqual(parseProfileTargets("https://www.instagram.com/demo.ig/"), [parseProfileUrl("https://www.instagram.com/demo.ig/")]);
+  for (const bad of ["@..", "@a/b", "", undefined]) assert.throws(() => parseProfileTargets(bad), { code: "INVALID_PROFILE_INPUT" }, String(bad));
 });

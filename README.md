@@ -192,9 +192,11 @@ Analyse one TikTok or Instagram profile into a private, local HTML report, group
 
 ```bash
 npm start -- profile https://www.tiktok.com/@somecreator --niche football-anime
+npm start -- profile @somecreator --niche football-anime   # platform unknown: TikTok, then Instagram
 npm start -- reports rebuild
 ```
 
+- A bare handle is tried on TikTok first, then on Instagram if TikTok reports the account as not found. A login prompt stops the run instead of falling through.
 - `--niche <slug>` — required, a lowercase slug like `football-anime` (a-z, 0-9, -)
 - `--videos <1-50>` — items to collect (default 12)
 - `--deep <0-10>` — top items read with comments (default 3)

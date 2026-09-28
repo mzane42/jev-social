@@ -36,6 +36,13 @@ export function parseProfileUrl(raw) {
   };
 }
 
+// A bare handle ("@name" or "name") has no platform: try TikTok first, then Instagram.
+export function parseProfileTargets(raw) {
+  const bare = typeof raw === "string" && /^@?([A-Za-z0-9._]{1,64})$/.exec(raw.trim());
+  if (!bare || /^\.+$/.test(bare[1])) return [parseProfileUrl(raw)];
+  return [`https://www.tiktok.com/@${bare[1]}`, `https://www.instagram.com/${bare[1]}/`].map(parseProfileUrl);
+}
+
 export function validateNiche(niche) {
   if (typeof niche !== "string" || !NICHE.test(niche)) {
     throw invalid("--niche must be a lowercase slug like football-anime (a-z, 0-9, -).");
