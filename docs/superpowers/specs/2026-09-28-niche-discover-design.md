@@ -49,8 +49,9 @@ Commenters as candidates, second hop, dashboard page, Jev relevance judge.
 
 ## Known live state (2026-09-28)
 
-`tiktok search` times out (managed Chrome shows TikTok login page) and
-`instagram search_accounts` returns `search_control_not_found`. Both are
-captured as failure fixtures. `instagram search --preview` cards carry no
-author; full `instagram search` does (live: 5 accounts for one keyword in 2 min).
+`tiktok search` on socai 0.6.1 times out on TikTok's sidebar-search layout.
+Fixed in the fork `mzane42/socai` branch `fix/tiktok-sidebar-search`, installed
+in `~/.socai/bin/socai` (official binary kept as `socai.0.6.1-release`).
+`instagram search_accounts` returns `search_control_not_found` (not fixed);
+full `instagram search` returns `posts[].author` and is used instead.
 Hashtags ending in fyp/foryou/viral/trending are dropped as reach bait.
