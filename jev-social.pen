@@ -9,7 +9,7 @@
       "name": "Account Analysis — Desktop",
       "clip": true,
       "width": 1440,
-      "height": 2282,
+      "height": 2340,
       "fill": "$bg",
       "children": [
         {
@@ -2787,7 +2787,7 @@
                   "id": "c9xHak",
                   "name": "Hook Sub",
                   "fill": "$muted",
-                  "content": "Top 3 hits vs 2 flops · frames 0/1/2 s + local mlx_whisper transcript · mock until step 5 (media)",
+                  "content": "Top 3 hits vs 2 weakest · frames 0/1/2 s (ffmpeg) + local mlx_whisper transcript + vision hook read · `jev-social media <niche>` · 5 top + 3 low per account",
                   "fontFamily": "$font-ui",
                   "fontSize": 12,
                   "fontWeight": "normal"
@@ -2804,7 +2804,7 @@
                 {
                   "type": "frame",
                   "id": "VPp7N",
-                  "name": "Hook World Cup · 33 s",
+                  "name": "Hook Mexico vs England · 48 s",
                   "clip": true,
                   "width": "fill_container",
                   "fill": "$surface",
@@ -2888,7 +2888,7 @@
                                   "id": "ckAOT",
                                   "name": "Views Label",
                                   "fill": "$text",
-                                  "content": "2.2M views",
+                                  "content": "872K views",
                                   "fontFamily": "$font-mono",
                                   "fontSize": 10,
                                   "fontWeight": "normal"
@@ -2991,7 +2991,9 @@
                           "id": "aaDV4",
                           "name": "Hook Meta",
                           "fill": "$muted",
-                          "content": "World Cup · 33 s",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Mexico vs England · 48 s",
                           "fontFamily": "$font-ui",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -3000,10 +3002,10 @@
                           "type": "text",
                           "id": "lOPb2",
                           "name": "Hook Desc",
-                          "fill": "$text",
+                          "fill": "$muted",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Haaland volley freeze-frame + '2-0' score overlay at 0.4 s",
+                          "content": "First seconds: read by the vision model after `jev-social media`",
                           "lineHeight": 1.45,
                           "fontFamily": "$font-ui",
                           "fontSize": 13,
@@ -3031,6 +3033,19 @@
                               "fontWeight": "normal"
                             }
                           ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "CHjL5",
+                          "name": "Hook Transcript",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "“…first 3 s of speech, local mlx_whisper”",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "fontStyle": "italic"
                         }
                       ]
                     }
@@ -3039,7 +3054,7 @@
                 {
                   "type": "frame",
                   "id": "sV9nE",
-                  "name": "Hook France vs Spain · 96 s",
+                  "name": "Hook Norway vs Brazil · 33 s",
                   "clip": true,
                   "width": "fill_container",
                   "fill": "$surface",
@@ -3123,7 +3138,7 @@
                                   "id": "wRep2",
                                   "name": "Views Label",
                                   "fill": "$text",
-                                  "content": "536K views",
+                                  "content": "653K views",
                                   "fontFamily": "$font-mono",
                                   "fontSize": 10,
                                   "fontWeight": "normal"
@@ -3226,7 +3241,9 @@
                           "id": "Q3OCE",
                           "name": "Hook Meta",
                           "fill": "$muted",
-                          "content": "France vs Spain · 96 s",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Norway vs Brazil · 33 s",
                           "fontFamily": "$font-ui",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -3235,10 +3252,10 @@
                           "type": "text",
                           "id": "K5wlk",
                           "name": "Hook Desc",
-                          "fill": "$text",
+                          "fill": "$muted",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Mbappé close-up, 'according to plan' caption, bass drop at 0.8 s",
+                          "content": "First seconds: read by the vision model after `jev-social media`",
                           "lineHeight": 1.45,
                           "fontFamily": "$font-ui",
                           "fontSize": 13,
@@ -3260,12 +3277,25 @@
                               "id": "mrzGE",
                               "name": "Hook Type Label",
                               "fill": "$good",
-                              "content": "hook: star + caption",
+                              "content": "hook: star closeup",
                               "fontFamily": "$font-mono",
                               "fontSize": 11,
                               "fontWeight": "normal"
                             }
                           ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "JWwua",
+                          "name": "Hook Transcript",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "“…”",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "fontStyle": "italic"
                         }
                       ]
                     }
@@ -3274,7 +3304,7 @@
                 {
                   "type": "frame",
                   "id": "e4RS4",
-                  "name": "Hook PL opening · 98 s",
+                  "name": "Hook Arsenal vs City · 106 s",
                   "clip": true,
                   "width": "fill_container",
                   "fill": "$surface",
@@ -3358,7 +3388,7 @@
                                   "id": "uKlHR",
                                   "name": "Views Label",
                                   "fill": "$text",
-                                  "content": "321K views",
+                                  "content": "398K views",
                                   "fontFamily": "$font-mono",
                                   "fontSize": 10,
                                   "fontWeight": "normal"
@@ -3461,7 +3491,9 @@
                           "id": "fb7Nd",
                           "name": "Hook Meta",
                           "fill": "$muted",
-                          "content": "PL opening · 98 s",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Arsenal vs City · 106 s",
                           "fontFamily": "$font-ui",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -3470,10 +3502,10 @@
                           "type": "text",
                           "id": "q6YxNc",
                           "name": "Hook Desc",
-                          "fill": "$text",
+                          "fill": "$muted",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Trophy shot, 'Oh how we've missed the PL' text, fast cuts every 0.5 s",
+                          "content": "First seconds: read by the vision model after `jev-social media`",
                           "lineHeight": 1.45,
                           "fontFamily": "$font-ui",
                           "fontSize": 13,
@@ -3495,12 +3527,25 @@
                               "id": "Y3X2Gi",
                               "name": "Hook Type Label",
                               "fill": "$good",
-                              "content": "hook: event + text",
+                              "content": "hook: payoff first",
                               "fontFamily": "$font-mono",
                               "fontSize": 11,
                               "fontWeight": "normal"
                             }
                           ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "zWwVS",
+                          "name": "Hook Transcript",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "“…”",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "fontStyle": "italic"
                         }
                       ]
                     }
@@ -3509,7 +3554,7 @@
                 {
                   "type": "frame",
                   "id": "U43d8p",
-                  "name": "Hook DBZ vs Naruto · meme",
+                  "name": "Hook Yamal's Odyssey · 0.39× median",
                   "clip": true,
                   "width": "fill_container",
                   "fill": "$surface",
@@ -3558,7 +3603,7 @@
                               "type": "frame",
                               "id": "kVFec",
                               "name": "Tag",
-                              "fill": "$accent",
+                              "fill": "$amber",
                               "cornerRadius": 6,
                               "padding": [
                                 3,
@@ -3570,7 +3615,7 @@
                                   "id": "Q3r0h",
                                   "name": "Tag Label",
                                   "fill": "#0B0B0F",
-                                  "content": "FLOP",
+                                  "content": "LOW",
                                   "fontFamily": "$font-ui",
                                   "fontSize": 10,
                                   "fontWeight": "700"
@@ -3593,7 +3638,7 @@
                                   "id": "h3xPq",
                                   "name": "Views Label",
                                   "fill": "$text",
-                                  "content": "1.2K views",
+                                  "content": "5.0K views",
                                   "fontFamily": "$font-mono",
                                   "fontSize": 10,
                                   "fontWeight": "normal"
@@ -3696,7 +3741,9 @@
                           "id": "SFx9A",
                           "name": "Hook Meta",
                           "fill": "$muted",
-                          "content": "DBZ vs Naruto · meme",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Yamal's Odyssey · 0.39× median",
                           "fontFamily": "$font-ui",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -3705,10 +3752,10 @@
                           "type": "text",
                           "id": "P8UQnz",
                           "name": "Hook Desc",
-                          "fill": "$text",
+                          "fill": "$muted",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Static title card for 1.5 s, no match context",
+                          "content": "First seconds: read by the vision model after `jev-social media`",
                           "lineHeight": 1.45,
                           "fontFamily": "$font-ui",
                           "fontSize": 13,
@@ -3729,13 +3776,276 @@
                               "type": "text",
                               "id": "b2a0Nn",
                               "name": "Hook Type Label",
-                              "fill": "$accent",
+                              "fill": "$amber",
                               "content": "hook: no hook",
                               "fontFamily": "$font-mono",
                               "fontSize": 11,
                               "fontWeight": "normal"
                             }
                           ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "ulgoD",
+                          "name": "Hook Transcript",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "“…”",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "fontStyle": "italic"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "JjeVV",
+                  "name": "Hook Mbappé · France vs Morocco · 0.40×",
+                  "clip": true,
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": 14,
+                  "stroke": "$line",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "zh0Jj",
+                      "name": "Thumb",
+                      "width": "fill_container",
+                      "height": 180,
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#26262E",
+                            "position": 0
+                          },
+                          {
+                            "color": "#1C1C26",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "layout": "vertical",
+                      "padding": 10,
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "iYof8",
+                          "name": "Thumb Top",
+                          "width": "fill_container",
+                          "justifyContent": "space_between",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "N9okW",
+                              "name": "Tag",
+                              "fill": "$amber",
+                              "cornerRadius": 6,
+                              "padding": [
+                                3,
+                                8
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "e9aC4S",
+                                  "name": "Tag Label",
+                                  "fill": "#0B0B0F",
+                                  "content": "LOW",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 10,
+                                  "fontWeight": "700"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "emU9P",
+                              "name": "Views Badge",
+                              "fill": "#0B0B0FCC",
+                              "cornerRadius": 6,
+                              "padding": [
+                                3,
+                                8
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "XobIr",
+                                  "name": "Views Label",
+                                  "fill": "$text",
+                                  "content": "5.1K views",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "uvhHI",
+                          "name": "Frame Strip",
+                          "width": "fill_container",
+                          "gap": 3,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "y1ePZ7",
+                              "name": "Frame 0.0s",
+                              "width": "fill_container",
+                              "height": 22,
+                              "fill": "#0B0B0FB3",
+                              "cornerRadius": 4,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "QrOuB",
+                                  "name": "Frame Time",
+                                  "fill": "$muted",
+                                  "content": "0.0s",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "FOOTQ",
+                              "name": "Frame 1.0s",
+                              "width": "fill_container",
+                              "height": 22,
+                              "fill": "#0B0B0FB3",
+                              "cornerRadius": 4,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "PT8Lw",
+                                  "name": "Frame Time",
+                                  "fill": "$muted",
+                                  "content": "1.0s",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "JGf0s",
+                              "name": "Frame 2.0s",
+                              "width": "fill_container",
+                              "height": 22,
+                              "fill": "#0B0B0FB3",
+                              "cornerRadius": 4,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Wb2Z8",
+                                  "name": "Frame Time",
+                                  "fill": "$muted",
+                                  "content": "2.0s",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 10,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "G3smp",
+                      "name": "Hook Body",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "padding": 16,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "yHOkD",
+                          "name": "Hook Meta",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Mbappé · FRA vs MAR · 0.40×",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "t6Poe",
+                          "name": "Hook Desc",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "First seconds: read by the vision model after `jev-social media`",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "R0MBEO",
+                          "name": "Hook Type",
+                          "fill": "$surface-2",
+                          "cornerRadius": 99,
+                          "padding": [
+                            3,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "ruwfJ",
+                              "name": "Hook Type Label",
+                              "fill": "$amber",
+                              "content": "hook: on screen text",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "qCuX7",
+                          "name": "Hook Transcript",
+                          "fill": "$muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "“…”",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 11,
+                          "fontWeight": "normal",
+                          "fontStyle": "italic"
                         }
                       ]
                     }

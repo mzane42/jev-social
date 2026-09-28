@@ -55,12 +55,16 @@ test("analyzeMedia runs download → frames → transcript → hook, records fai
   assert.ok(seen.includes("Haaland scores"));
 });
 
-test("readHook is off without a key or model and falls back to no_hook on an unknown type", async () => {
+test("readHook is off without a key or model and rejects an unknown or empty answer", async () => {
   assert.equal(await createLocalMedia({ runJson: null, apiKey: "", root: "/tmp" }).readHook({ frames: ["x"], head: "" }), null);
   const fetchImpl = async () => Response.json({ model: "vision-x", choices: [{ message: { content: JSON.stringify({ hook_type: "invented", first_seconds: "A goal." }) } }] });
   const m = createLocalMedia({ runJson: null, apiKey: "k", root: "/tmp", fetchImpl });
   const frame = new URL("./fixtures/profile/tiktok-author.json", import.meta.url).pathname;
-  assert.deepEqual(await m.readHook({ frames: [frame], head: "", caption: "" }), { hookType: "no_hook", note: "A goal.", model: "vision-x" });
+  await assert.rejects(m.readHook({ frames: [frame], head: "", caption: "" }), /unknown hook type/);
+  const empty = createLocalMedia({ runJson: null, apiKey: "k", root: "/tmp", fetchImpl: async () => Response.json({ choices: [{ message: { content: "" } }] }) });
+  await assert.rejects(empty.readHook({ frames: [frame], head: "", caption: "" }), /no JSON/);
+  const ok = createLocalMedia({ runJson: null, apiKey: "k", root: "/tmp", fetchImpl: async () => Response.json({ model: "v", choices: [{ message: { content: JSON.stringify({ hook_type: "scoreline", first_seconds: "2-0 on screen." }) } }] }) });
+  assert.deepEqual(await ok.readHook({ frames: [frame], head: "", caption: "" }), { hookType: "scoreline", note: "2-0 on screen.", model: "v" });
 });
 
 test("download asks socai for media without paid transcription and copies files under the media root", async () => {

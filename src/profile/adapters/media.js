@@ -101,7 +101,8 @@ export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookMode
         body: JSON.stringify({
           model: hookModel,
           temperature: 0,
-          max_tokens: 200,
+          // Reasoning models spend tokens before answering; 200 left gpt-6-luna with an empty reply.
+          max_tokens: 1_000,
           response_format: { type: "json_object" },
           messages: [{ role: "user", content: [{ type: "text", text: prompt }, ...images] }],
         }),
@@ -109,8 +110,15 @@ export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookMode
       });
       const payload = JSON.parse((await response.text()) || "{}");
       if (!response.ok) throw new Error(payload?.error?.message || `OpenRouter returned HTTP ${response.status}`);
-      const content = JSON.parse(payload?.choices?.[0]?.message?.content || "{}");
-      const hookType = Object.hasOwn(HOOK_TYPES, content.hook_type) ? content.hook_type : "no_hook";
+      let content;
+      try {
+        content = JSON.parse(payload?.choices?.[0]?.message?.content || "");
+      } catch {
+        throw new Error(`${hookModel} returned no JSON hook reading.`);
+      }
+      // An empty or off-deck answer is a failed read, never a "no_hook" verdict.
+      if (!Object.hasOwn(HOOK_TYPES, content?.hook_type)) throw new Error(`${hookModel} returned an unknown hook type.`);
+      const hookType = content.hook_type;
       return { hookType, note: String(content.first_seconds || "").trim().slice(0, 200), model: payload?.model || hookModel };
     },
   };
