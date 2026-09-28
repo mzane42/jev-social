@@ -51,7 +51,7 @@ test("TikTok author page that never hydrates reports not found with the socai re
   });
   await assert.rejects(
     collector.collect({ platform: "tiktok", handle: "recette1min", url: "https://www.tiktok.com/@recette1min", videos: 12, deep: 3 }),
-    { code: "PROFILE_NOT_FOUND", message: "No profile data captured for @recette1min (socai: navigation_timeout): the account may be private or not exist." },
+    { code: "PROFILE_NOT_FOUND", message: "Profile page for @recette1min did not load (socai: navigation_timeout): the account may not exist, or retry." },
   );
 });
 

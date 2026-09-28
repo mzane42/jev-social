@@ -20,9 +20,12 @@ function loginRequired(platform) {
   });
 }
 
-function profileNotFound(handle, reason) {
+function profileNotFound(handle, reason, unavailable = true) {
   const detail = reason ? ` (socai: ${reason})` : "";
-  return new AppError(`No profile data captured for @${handle}${detail}: the account may be private or not exist.`, {
+  const message = unavailable
+    ? `No profile data captured for @${handle}${detail}: the account may be private or not exist.`
+    : `Profile page for @${handle} did not load${detail}: the account may not exist, or retry.`;
+  return new AppError(message, {
     code: "PROFILE_NOT_FOUND",
     status: 404,
   });
@@ -36,7 +39,7 @@ export function createSocaiCollector({ runJson }) {
         if (!author?.profile) {
           const observed = author?.state?.observed_state;
           if (author?.login_required || author?.challenge_required || observed?.login_required || observed?.challenge_required) throw loginRequired(platform);
-          throw profileNotFound(handle, author?.reason);
+          throw profileNotFound(handle, author?.reason, observed?.unavailable !== false);
         }
         const top = [...(author.profile.video_cards || [])]
           .filter((card) => TIKTOK_VIDEO_URL.test(card?.url || ""))

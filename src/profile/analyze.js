@@ -25,16 +25,23 @@ export async function analyzeProfile(deps, { url, niche, videos = 12, deep = 3, 
 
   let target;
   let collected;
+  const skipped = [];
   for (const [index, candidate] of targets.entries()) {
     try {
       collected = await collector.collect({ ...candidate, videos, deep, signal });
       target = candidate;
       break;
     } catch (error) {
-      if (error?.code !== "PROFILE_NOT_FOUND" || index === targets.length - 1) throw error;
+      if (error?.code !== "PROFILE_NOT_FOUND") throw error;
+      skipped.push(`${candidate.platform}: ${error.message}`);
+      if (index === targets.length - 1) {
+        if (skipped.length > 1) error.message = skipped.join(" | ");
+        throw error;
+      }
     }
   }
   const snapshot = { platform: target.platform, handle: target.handle, niche, url: target.url, capturedAt: now().toISOString(), ...collected };
+  if (skipped.length) snapshot.fallbackFrom = skipped.join(" | ");
   const metrics = computeMetrics(snapshot);
 
   let list = [];

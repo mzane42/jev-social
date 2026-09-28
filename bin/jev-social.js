@@ -25,7 +25,7 @@ Usage:
   jev-social status                               Show local readiness
   jev-social search <query> [options]             Run one search
   jev-social serve [--port 8766] [--no-open]      Start local preview
-  jev-social profile <url|@handle> --niche <s>    Analyse a TikTok/Instagram profile (bare @handle: TikTok, then Instagram)
+  jev-social profile <url> --niche <slug>         Analyse a TikTok/Instagram profile; <url> may be a bare @handle
   jev-social reports rebuild                      Regenerate report index pages
 
 Search options:
@@ -99,6 +99,7 @@ try {
       videos: Number(flags.videos ?? 12),
       deep: Number(flags.deep ?? 3),
     });
+    if (result.snapshot.fallbackFrom) console.error(`Not found, fell back: ${result.snapshot.fallbackFrom}`);
     if (result.snapshot.partial) console.error(`Partial capture: ${result.snapshot.partialReason}`);
     console.log(path.join(result.dir, "report.html"));
   } else if (command === "reports") {

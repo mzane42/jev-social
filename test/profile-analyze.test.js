@@ -101,6 +101,10 @@ test("analyzeProfile falls back from TikTok to Instagram only when TikTok report
   assert.deepEqual(tried, ["tiktok", "instagram"]);
   assert.equal(saved[0].snapshot.platform, "instagram");
   assert.equal(saved[0].snapshot.url, "https://www.instagram.com/demo.ig/");
+  assert.equal(saved[0].snapshot.fallbackFrom, "tiktok: nf");
+
+  deps.collector.collect = async (request) => { throw Object.assign(new Error(`${request.platform} nf`), { code: "PROFILE_NOT_FOUND" }); };
+  await assert.rejects(analyzeProfile(deps, { url: "@demo.ig", niche: "cuisine" }), { code: "PROFILE_NOT_FOUND", message: "tiktok: tiktok nf | instagram: instagram nf" });
 
   deps.collector.collect = async () => { throw Object.assign(new Error("login"), { code: "PROFILE_LOGIN_REQUIRED" }); };
   await assert.rejects(analyzeProfile(deps, { url: "@demo.ig", niche: "cuisine" }), { code: "PROFILE_LOGIN_REQUIRED" });
