@@ -18,7 +18,7 @@ Seeds are full profile URLs (platform must be explicit).
 
 ## Flow
 
-`jev-social discover --niche <slug> [--per-keyword 12] [--hashtags 5]`
+`jev-social discover --niche <slug> [--per-keyword 8] [--hashtags 5]`
 
 1. Each seed → existing profile collector → captions and bio.
    Top `--hashtags` hashtags (generic tags like `#fyp` removed) become extra
