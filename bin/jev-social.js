@@ -105,6 +105,7 @@ try {
     if (result.snapshot.fallbackFrom) console.error(`Not found, fell back: ${result.snapshot.fallbackFrom}`);
     if (result.snapshot.partial) console.error(`Partial capture: ${result.snapshot.partialReason}`);
     if (result.classification.skipped) console.error(result.classification.skipped);
+    else if (result.classification.classified) console.error(`Jev classified ${result.classification.classified} videos`);
     console.log(path.join(result.dir, "report.html"));
   } else if (command === "reports") {
     if (!["rebuild", "import", "classify"].includes(rest[0])) throw new Error("Usage: jev-social reports rebuild|import|classify");
@@ -115,6 +116,8 @@ try {
       for (const root of rest.length > 1 ? rest.slice(1) : [reportsRoot()]) {
         for (const entry of await createFsRepository({ root }).listLatest()) {
           deps.repository.importReport(entry.data);
+          const html = await readFile(path.join(root, entry.niche, entry.account, entry.date, "report.html"), "utf8").catch(() => null);
+          if (html !== null) await deps.repository.writeIndex(path.join(entry.niche, entry.account, entry.date, "report.html"), html);
           count += 1;
         }
       }
