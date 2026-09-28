@@ -28,3 +28,5 @@ cards are present, even if the input value cannot be read.
 
 Also seen on the same version: `instagram search_accounts` returns
 `search_control_not_found` on an authenticated home page.
+
+**Patch:** https://github.com/mzane42/socai/tree/fix/tiktok-sidebar-search (commit 551fc8f), verified live: 8 cards, no timeout.
