@@ -75,7 +75,8 @@ export async function classifyItems({ classifier, loadDeck, repository }, niche,
   const deck = await loadDeck(niche);
   if (!deck) return { classified: 0, skipped: `no deck at niches/${niche}.json` };
   const done = repository.classifications(deck.version, niche);
-  const todo = items.filter((item) => !done.has(item.url));
+  const media = repository.media?.(niche) ?? new Map();
+  const todo = items.filter((item) => !done.has(item.url)).map((item) => ({ ...item, transcript: media.get(item.url)?.transcript ?? null }));
   if (!todo.length) return { classified: 0, skipped: null };
   try {
     const result = await classifier.classify({ deck, items: todo, signal });
@@ -113,4 +114,45 @@ export async function rebuildIndexes({ repository, render }) {
   }
   await repository.writeIndex("index.html", render.rootIndex(summary));
   return { niches: summary.length, accounts: summary.reduce((total, entry) => total + entry.accounts, 0) };
+}
+
+// Top N and bottom M videos by views per latest report of the niche, skipping ones already processed.
+export function pickMediaTargets(entries, done, { top = 5, flops = 3 } = {}) {
+  return entries.map((entry) => {
+    const ranked = entry.data.snapshot.items.filter((item) => item.views != null && item.url).sort((a, b) => b.views - a.views);
+    const chosen = [...ranked.slice(0, top), ...ranked.slice(top).slice(-flops)];
+    return { entry, items: chosen.filter((item) => !done.get(item.url) || done.get(item.url).error) };
+  }).filter((target) => target.items.length);
+}
+
+// Download → frames → local transcript → hook reading, per account batch; then re-classify with transcripts.
+// One failed video is recorded with its error and never stops the batch.
+export async function analyzeMedia(deps, { niche, top = 5, flops = 3, log = () => {}, signal }) {
+  const { media, repository } = deps;
+  const entries = (await repository.listLatest()).filter((entry) => entry.niche === niche && entry.data.snapshot.platform === "tiktok");
+  const targets = pickMediaTargets(entries, repository.media(niche), { top, flops });
+  let processed = 0;
+  for (const { entry, items } of targets) {
+    log(`${entry.account}: downloading ${items.length} videos`);
+    const paths = await media.download(items.map((item) => item.url), { signal });
+    for (const item of items) {
+      const videoPath = paths.get(item.url);
+      if (!videoPath) {
+        repository.saveMedia(niche, { url: item.url, error: "download failed" });
+        continue;
+      }
+      try {
+        const frames = await media.frames(videoPath);
+        const { text, head } = await media.transcribe(videoPath);
+        const hook = await media.readHook({ frames, head, caption: item.caption, signal }).catch((error) => ({ error: error.message }));
+        repository.saveMedia(niche, { url: item.url, videoPath, frames, transcript: text, head, ...hook });
+        processed += 1;
+        log(`  ${item.url.split("/").pop()}: ${hook?.hookType ?? "no hook read"}`);
+      } catch (error) {
+        repository.saveMedia(niche, { url: item.url, videoPath, error: error.message });
+      }
+    }
+  }
+  const classification = await classifyReports(deps, { niche, signal });
+  return { processed, classified: classification.classified, notes: classification.notes };
 }

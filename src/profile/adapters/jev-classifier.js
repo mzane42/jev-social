@@ -33,11 +33,17 @@ export function classificationText(item) {
   // ponytail: TikTok appends "créé par <account> avec <sound>"; dropping from there keeps hashtags.
   const caption = String(item.caption || "").replace(/\s*créé par .*$/su, "").trim();
   const comments = (item.topComments || []).slice(0, 5).map((entry) => entry.text).filter(Boolean);
-  return caption || comments.length ? { caption: caption.slice(0, 500), top_comments: comments.map((text) => text.slice(0, 200)) } : null;
+  const transcript = String(item.transcript || "").trim();
+  if (!caption && !comments.length && !transcript) return null;
+  return {
+    caption: caption.slice(0, 500),
+    top_comments: comments.map((text) => text.slice(0, 200)),
+    ...(transcript ? { spoken_transcript: transcript.slice(0, 800) } : {}),
+  };
 }
 
 export function buildClassificationRequest(model, deck, item, text) {
-  const question = (task, criteria) => ({ type: "choice", instructions: { task, rules: ["Judge only from the caption and comments given.", "Pick other when unsure."] }, criteria });
+  const question = (task, criteria) => ({ type: "choice", instructions: { task, rules: ["Judge only from the caption, comments and spoken transcript given.", "Pick other when unsure."] }, criteria });
   return {
     model,
     state: { niche: deck.niche, platform_item: text, duration_seconds: item.durationSeconds ?? null },

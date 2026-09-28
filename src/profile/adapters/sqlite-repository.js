@@ -20,12 +20,21 @@ CREATE TABLE IF NOT EXISTS classifications (
   news TEXT NOT NULL, news_conf REAL NOT NULL,
   model TEXT, classified_at TEXT NOT NULL,
   PRIMARY KEY (url, deck_version)
+);
+CREATE TABLE IF NOT EXISTS media (
+  url TEXT PRIMARY KEY, niche TEXT NOT NULL,
+  video_path TEXT, frames TEXT NOT NULL DEFAULT '[]',
+  transcript TEXT, transcript_head TEXT,
+  hook_type TEXT, hook_note TEXT, hook_model TEXT,
+  error TEXT, created_at TEXT NOT NULL
 );`;
 
 export function openDatabase(file) {
   if (file !== ":memory:") mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(file);
   if (file !== ":memory:") chmodSync(file, 0o600);
+  // Several sessions (CLI runs, discovery, the dashboard) share this file: wait instead of failing on a lock.
+  db.exec("PRAGMA busy_timeout = 10000; PRAGMA journal_mode = WAL;");
   db.exec(SCHEMA);
   return db;
 }
@@ -41,6 +50,11 @@ export function createSqliteRepository({ db, files, now = () => new Date() }) {
     (url, deck_version, niche, theme, theme_conf, format, format_conf, news, news_conf, model, classified_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const getClass = db.prepare("SELECT * FROM classifications WHERE deck_version = ? AND niche = ?");
+  const putMedia = db.prepare(`INSERT OR REPLACE INTO media
+    (url, niche, video_path, frames, transcript, transcript_head, hook_type, hook_note, hook_model, error, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const getMedia = db.prepare("SELECT * FROM media WHERE niche = ?");
+  const dropClass = db.prepare("DELETE FROM classifications WHERE url = ? AND niche = ?");
 
   const put = ({ snapshot, metrics, insights, insightNotice = null }) => {
     const account = `${snapshot.platform}@${snapshot.handle}`;
@@ -71,6 +85,15 @@ export function createSqliteRepository({ db, files, now = () => new Date() }) {
         news: { value: row.news, confidence: row.news_conf },
         model: row.model,
       }]));
+    },
+    media(niche) {
+      return new Map(getMedia.all(niche).map((row) => [row.url, { ...row, frames: JSON.parse(row.frames) }]));
+    },
+    // Saving a transcript drops the url's classifications so the next classify pass reads it.
+    saveMedia(niche, m) {
+      putMedia.run(m.url, niche, m.videoPath ?? null, JSON.stringify(m.frames ?? []), m.transcript ?? null, m.head ?? null,
+        m.hookType ?? null, m.note ?? null, m.model ?? null, m.error ?? null, now().toISOString());
+      if (m.transcript) dropClass.run(m.url, niche);
     },
     saveClassifications(deckVersion, niche, byUrl) {
       const at = now().toISOString();

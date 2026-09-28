@@ -11,10 +11,12 @@ import { probeSocai } from "../src/socai.js";
 import { startServer } from "../src/server.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { analyzeProfile, classifyReports, rebuildIndexes } from "../src/profile/analyze.js";
+import { validateNiche, validateRange } from "../src/profile/domain.js";
+import { analyzeMedia, analyzeProfile, classifyReports, rebuildIndexes } from "../src/profile/analyze.js";
 import { createFsRepository, reportsRoot } from "../src/profile/adapters/fs-repository.js";
 import { renderNicheIndex, renderReport, renderRootIndex } from "../src/profile/adapters/html-renderer.js";
 import { createJevClassifier, loadDeck } from "../src/profile/adapters/jev-classifier.js";
+import { createLocalMedia } from "../src/profile/adapters/media.js";
 import { createOpenRouterInsights } from "../src/profile/adapters/openrouter-insights.js";
 import { createSocaiCollector, createSocaiRunJson } from "../src/profile/adapters/socai-collector.js";
 
@@ -30,6 +32,7 @@ Usage:
   jev-social reports rebuild                      Regenerate report index pages
   jev-social reports import [dir...]              Load saved data.json reports into the local database
   jev-social reports classify [--niche <slug>]    Jev-classify saved videos (theme, format, news hook)
+  jev-social media <niche> [--top 5 --flops 3]    Download top/flop TikTok videos, frames, local transcript, hook
 
 Search options:
   --platform <auto|instagram|tiktok|linkedin>  Platform hint (default: auto)
@@ -107,6 +110,18 @@ try {
     if (result.classification.skipped) console.error(result.classification.skipped);
     else if (result.classification.classified) console.error(`Jev classified ${result.classification.classified} videos`);
     console.log(path.join(result.dir, "report.html"));
+  } else if (command === "media") {
+    const flags = parseArgs(rest);
+    const niche = validateNiche(flags._[0]);
+    const deps = await profileDeps();
+    const result = await analyzeMedia(deps, {
+      niche,
+      top: validateRange("--top", Number(flags.top ?? 5), 0, 20),
+      flops: validateRange("--flops", Number(flags.flops ?? 3), 0, 20),
+      log: (line) => console.error(line),
+    });
+    for (const note of result.notes) console.error(note);
+    console.log(`${result.processed} videos analysed, ${result.classified} re-classified with transcripts`);
   } else if (command === "reports") {
     if (!["rebuild", "import", "classify"].includes(rest[0])) throw new Error("Usage: jev-social reports rebuild|import|classify");
     const deps = await profileDeps();
@@ -159,6 +174,11 @@ async function profileDeps() {
     repository: createSqliteRepository({ db: openDatabase(databasePath()), files: createFsRepository({ root: reportsRoot() }) }),
     classifier: provider.kind === "local" || apiKey ? createJevClassifier({ apiKey, provider }) : null,
     loadDeck,
+    media: createLocalMedia({
+      runJson: createSocaiRunJson({ config }),
+      apiKey,
+      hookModel: String(process.env.OPENROUTER_HOOK_MODEL || "openai/gpt-4o-mini").trim(),
+    }),
     render: { report: renderReport, nicheIndex: renderNicheIndex, rootIndex: renderRootIndex },
   };
 }
@@ -225,6 +245,8 @@ function parseArgs(args) {
     ["--niche", "niche"],
     ["--videos", "videos"],
     ["--deep", "deep"],
+    ["--top", "top"],
+    ["--flops", "flops"],
   ]);
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
