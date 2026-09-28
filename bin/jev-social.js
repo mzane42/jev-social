@@ -12,7 +12,6 @@ import { startServer } from "../src/server.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { discover } from "../src/discover.js";
-import { createTiktokSnapshotSearch } from "../src/tiktok-snapshot-search.js";
 import { validateNiche } from "../src/profile/domain.js";
 import { analyzeProfile, classifyReports, rebuildIndexes } from "../src/profile/analyze.js";
 import { createFsRepository, reportsRoot } from "../src/profile/adapters/fs-repository.js";
@@ -122,9 +121,8 @@ try {
     validateNiche(flags.niche);
     const niche = JSON.parse(await readFile(new URL(`../niches/${flags.niche}.json`, import.meta.url), "utf8").catch(() => "null"));
     if (!niche) throw new Error(`niches/${flags.niche}.json not found.`);
-    const runJson = createSocaiRunJson({ config: await readConfig() });
     const result = await discover(
-      { collector: deps.collector, runJson, tiktokSearch: createTiktokSnapshotSearch({ runJson }) },
+      { collector: deps.collector, runJson: createSocaiRunJson({ config: await readConfig() }) },
       {
         slug: flags.niche,
         niche,

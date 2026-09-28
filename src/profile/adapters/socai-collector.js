@@ -7,11 +7,9 @@ const TIKTOK_VIDEO_URL = /^https:\/\/www\.tiktok\.com\/@[\w.]+\/video\/\d+$/;
 
 export function createSocaiRunJson({ config = {}, env = process.env, resolveBin = resolveSocaiBin, run = runSocaiJson } = {}) {
   const childEnv = { ...env, SOCAI_TELEMETRY: "0", SOCAI_TELEMETRY_QUERY_TEXT: "off", SOCAI_NO_UPDATE_CHECK: "1" };
-  // full: also return stdout/stderr (stderr carries socai's "run_dir: ..." line).
-  return async (args, { signal, full = false } = {}) => {
+  return async (args, { signal } = {}) => {
     const bin = await resolveBin(config, childEnv);
-    const result = await run(bin, args, { env: childEnv, signal });
-    return full ? result : result.data;
+    return (await run(bin, args, { env: childEnv, signal })).data;
   };
 }
 

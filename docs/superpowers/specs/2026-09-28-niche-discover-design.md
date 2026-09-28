@@ -49,11 +49,7 @@ Commenters as candidates, second hop, dashboard page, Jev relevance judge.
 
 ## Known live state (2026-09-28)
 
-`tiktok search` times out although results render: TikTok moved its search box
-to the sidebar and socai 0.6.1's `visible_query` check stays empty. Workaround:
-`src/tiktok-snapshot-search.js` re-reads the result links from the
-`--debug-snapshot` DOM, then deletes the snapshots. Delete it once socai is fixed.
-
+`tiktok search` times out (managed Chrome shows TikTok login page) and
 `instagram search_accounts` returns `search_control_not_found`. Both are
 captured as failure fixtures. `instagram search --preview` cards carry no
 author; full `instagram search` does (live: 5 accounts for one keyword in 2 min).
