@@ -3,6 +3,7 @@
 import { buildActionArgs } from "./actions.js";
 import { HANDLE, parseProfileUrl, validateNiche, validateRange } from "./profile/domain.js";
 
+const PLATFORMS = ["tiktok", "instagram"];
 const TIKTOK_AUTHOR = /^https:\/\/www\.tiktok\.com\/@([A-Za-z0-9._]{1,64})\/video\/\d+/;
 const INSTAGRAM_PROFILE = /^https:\/\/www\.instagram\.com\/([A-Za-z0-9._]{1,64})\/?$/;
 // ponytail: fixed list of reach-bait tags; move to niches/<slug>.json if niches need their own.
@@ -60,6 +61,7 @@ export async function discover(deps, { slug, niche, perKeyword = 8, hashtags = 5
   validateNiche(slug);
   validateRange("--per-keyword", perKeyword, 1, 50);
   validateRange("--hashtags", hashtags, 0, 20);
+  if (!platforms.length || platforms.some((p) => !PLATFORMS.includes(p))) throw new Error(`--platform must be ${PLATFORMS.join(" or ")}.`);
   const keywords = [...new Set((niche?.keywords || []).map((k) => String(k).trim()).filter(Boolean))];
   const seeds = (niche?.seeds || []).map(parseProfileUrl);
   if (!keywords.length && !seeds.length) throw new Error(`niches/${slug}.json needs "keywords" or "seeds".`);
@@ -79,7 +81,9 @@ export async function discover(deps, { slug, niche, perKeyword = 8, hashtags = 5
       // Instagram grid cards carry no caption; open a few posts to read hashtags.
       const snapshot = await deps.collector.collect({ ...seed, videos: 12, deep: seed.platform === "instagram" ? 3 : 0, signal });
       const texts = [snapshot.profile?.bio, ...snapshot.items.map((item) => item.caption)];
-      for (const handle of mentions(texts)) add(seed.platform, handle, `mention:${seed.handle}`);
+      if (platforms.includes(seed.platform)) {
+        for (const handle of mentions(texts)) add(seed.platform, handle, `mention:${seed.handle}`);
+      }
       for (const tag of topHashtags(texts, hashtags)) {
         if (!queries.some((q) => q.query.toLowerCase() === tag)) queries.push({ query: tag, signal: `hashtag:${tag}` });
       }
@@ -89,6 +93,11 @@ export async function discover(deps, { slug, niche, perKeyword = 8, hashtags = 5
   }
 
   for (const { query, signal: source } of queries) {
+    // A query socai could read as an option (or an oversized one) is a failed search, not a failed run.
+    if (query.length > 512 || query.startsWith("-")) {
+      onNote(`"${query.slice(0, 40)}": skipped, invalid search query`);
+      continue;
+    }
     const searches = [
       ["tiktok", buildActionArgs({ platform: "tiktok", kind: "search", query, limit: perKeyword }), tiktokSearchHandles],
       ["instagram", ["instagram", "search_accounts", query, "--pretty"], instagramAccountHandles],

@@ -46,9 +46,9 @@ Profile options:
   Reports go to $JEV_SOCIAL_REPORTS_DIR or ~/.jev-social/reports
 
 Discover options:
-  --per-keyword <1-50>                 Search results per keyword and platform (default: 8)
+  --per-keyword <1-50>                 Results per keyword and search (default: 8)
   --hashtags <0-20>                    Seed hashtags reused as keywords (default: 5)
-  --platform <tiktok|instagram>        Search one platform only (default: both)
+  --platform <auto|tiktok|instagram>   Search one platform only (default: auto = both)
 
 Configuration (normally auto-loaded from .env):
   --api-key <key>                      OpenRouter API key (prompt is safer)

@@ -123,3 +123,34 @@ test("discover searches only the requested platforms", async () => {
   await discover({ collector: {}, runJson: async (args) => (calls.push(args[0]), {}) }, { slug: "x", niche: { keywords: ["k"] }, platforms: ["instagram"] });
   assert.deepEqual(calls, ["instagram", "instagram"]);
 });
+
+test("discover rejects unknown platforms", async () => {
+  const deps = { collector: {}, runJson: async () => ({}) };
+  await assert.rejects(discover(deps, { slug: "x", niche: { keywords: ["a"] }, platforms: ["linkedin"] }), /--platform must be tiktok or instagram/);
+  await assert.rejects(discover(deps, { slug: "x", niche: { keywords: ["a"] }, platforms: [] }), /--platform/);
+});
+
+test("discover skips invalid queries without aborting the run", async () => {
+  const notes = [];
+  const calls = [];
+  const result = await discover(
+    { collector: {}, runJson: async (args) => (calls.push(args[2]), { posts: [{ author: "ok_one" }] }) },
+    { slug: "x", niche: { keywords: ["--evil", "good"] }, platforms: ["instagram"], onNote: (n) => notes.push(n) },
+  );
+  assert.deepEqual(calls, ["good", "good"]);
+  assert.match(notes[0], /"--evil": skipped, invalid search query/);
+  assert.equal(result.candidates[0].account, "instagram@ok_one");
+});
+
+test("seed mentions only count on the requested platforms; seed hashtags still search", async () => {
+  const calls = [];
+  const result = await discover(
+    {
+      collector: { collect: async () => ({ profile: { bio: "@friend" }, items: [{ caption: "#animefoot" }] }) },
+      runJson: async (args) => (calls.push(args.slice(0, 3).join(" ")), {}),
+    },
+    { slug: "x", niche: { seeds: ["https://www.tiktok.com/@seed"] }, platforms: ["instagram"] },
+  );
+  assert.deepEqual(result.candidates, []);
+  assert.deepEqual(calls, ["instagram search_accounts animefoot", "instagram search animefoot"]);
+});
