@@ -1,6 +1,6 @@
 import { AppError } from "../errors.js";
 
-const HANDLE = /^[A-Za-z0-9._]{1,64}$/;
+export const HANDLE = /^[A-Za-z0-9._]{1,64}$/;
 const NICHE = /^[a-z0-9-]{1,48}$/;
 const RESERVED_INSTAGRAM = new Set(["accounts", "about", "api", "challenge", "direct", "explore", "legal", "oauth", "p", "reel", "reels", "settings", "stories", "terms", "privacy"]);
 

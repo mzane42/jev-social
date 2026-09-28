@@ -1,0 +1,30 @@
+{
+  "cards": [],
+  "count": 0,
+  "ok": false,
+  "query": "anime football",
+  "reason": "search_navigation_timeout",
+  "state": {
+    "observed_state": {
+      "blank_or_throttled": false,
+      "card_count": 3,
+      "challenge_required": false,
+      "has_no_results": false,
+      "login_required": false,
+      "ok": true,
+      "query": "anime football",
+      "query_visible": false,
+      "ready_state": "complete",
+      "reason": "",
+      "search_error": null,
+      "site": "tiktok",
+      "title": "Se connecter | TikTok",
+      "url": "https://www.tiktok.com/search?q=anime%20football",
+      "visible_query": ""
+    },
+    "observed_url": "https://www.tiktok.com/search?q=anime%20football",
+    "ok": false,
+    "query": "anime football",
+    "reason": "search_navigation_timeout"
+  }
+}

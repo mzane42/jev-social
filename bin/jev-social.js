@@ -11,6 +11,8 @@ import { probeSocai } from "../src/socai.js";
 import { startServer } from "../src/server.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { discover } from "../src/discover.js";
+import { validateNiche } from "../src/profile/domain.js";
 import { analyzeProfile, classifyReports, rebuildIndexes } from "../src/profile/analyze.js";
 import { createFsRepository, reportsRoot } from "../src/profile/adapters/fs-repository.js";
 import { renderNicheIndex, renderReport, renderRootIndex } from "../src/profile/adapters/html-renderer.js";
@@ -27,6 +29,7 @@ Usage:
   jev-social search <query> [options]             Run one search
   jev-social serve [--port 8766] [--no-open]      Start local preview
   jev-social profile <url> --niche <slug>         Analyse a TikTok/Instagram profile; <url> may be a bare @handle
+  jev-social discover --niche <slug>              Find same-niche accounts from niches/<slug>.json keywords and seeds
   jev-social reports rebuild                      Regenerate report index pages
   jev-social reports import [dir...]              Load saved data.json reports into the local database
   jev-social reports classify [--niche <slug>]    Jev-classify saved videos (theme, format, news hook)
@@ -41,6 +44,11 @@ Profile options:
   --videos <1-50>                      Items to collect (default: 12)
   --deep <0-10>                        Top items read with comments (default: 3)
   Reports go to $JEV_SOCIAL_REPORTS_DIR or ~/.jev-social/reports
+
+Discover options:
+  --per-keyword <1-50>                 Results per keyword and search (default: 8)
+  --hashtags <0-20>                    Seed hashtags reused as keywords (default: 5)
+  --platform <auto|tiktok|instagram>   Search one platform only (default: auto = both)
 
 Configuration (normally auto-loaded from .env):
   --api-key <key>                      OpenRouter API key (prompt is safer)
@@ -107,6 +115,27 @@ try {
     if (result.classification.skipped) console.error(result.classification.skipped);
     else if (result.classification.classified) console.error(`Jev classified ${result.classification.classified} videos`);
     console.log(path.join(result.dir, "report.html"));
+  } else if (command === "discover") {
+    const flags = parseArgs(rest);
+    const deps = await profileDeps();
+    validateNiche(flags.niche);
+    const niche = JSON.parse(await readFile(new URL(`../niches/${flags.niche}.json`, import.meta.url), "utf8").catch(() => "null"));
+    if (!niche) throw new Error(`niches/${flags.niche}.json not found.`);
+    const result = await discover(
+      { collector: deps.collector, runJson: createSocaiRunJson({ config: await readConfig() }) },
+      {
+        slug: flags.niche,
+        niche,
+        perKeyword: Number(flags.perKeyword ?? 8),
+        hashtags: Number(flags.hashtags ?? 5),
+        platforms: flags.platform && flags.platform !== "auto" ? [flags.platform] : undefined,
+        onNote: (note) => console.error(`[discover] ${note}`),
+      },
+    );
+    deps.repository.saveCandidates(flags.niche, result.candidates);
+    console.error(`Queries: ${result.queries.join(", ")}`);
+    for (const c of result.candidates) console.log(`${String(c.score).padStart(3)}  ${c.account.padEnd(40)} ${c.signals.join(", ")}`);
+    console.error(`${result.candidates.length} candidates → ${deps.dbPath}`);
   } else if (command === "reports") {
     if (!["rebuild", "import", "classify"].includes(rest[0])) throw new Error("Usage: jev-social reports rebuild|import|classify");
     const deps = await profileDeps();
@@ -225,6 +254,8 @@ function parseArgs(args) {
     ["--niche", "niche"],
     ["--videos", "videos"],
     ["--deep", "deep"],
+    ["--per-keyword", "perKeyword"],
+    ["--hashtags", "hashtags"],
   ]);
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
