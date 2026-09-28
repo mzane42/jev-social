@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { discover, instagramAccountHandles, mentions, tiktokSearchHandles, topHashtags } from "../src/discover.js";
+import { discover, instagramAccountHandles, instagramPostAuthors, mentions, tiktokSearchHandles, topHashtags } from "../src/discover.js";
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/discover/${name}.json`, import.meta.url), "utf8"));
 
@@ -12,8 +12,8 @@ const tiktokCards = (...handles) => ({
 });
 
 test("topHashtags counts, drops generic tags, and breaks ties by name", () => {
-  const tags = topHashtags(["#fyp #Anime #worldcup", "#anime #haaland #FYP", "#worldcup #anime"], 2);
-  assert.deepEqual(tags, ["anime", "worldcup"]);
+  const tags = topHashtags(["#fyp #Anime #worldcup #animefyp #footballfyp", "#anime #haaland #FYP", "#worldcup #anime"], 5);
+  assert.deepEqual(tags, ["anime", "worldcup", "haaland"]);
 });
 
 test("mentions keep valid handles only, lowercased and deduplicated", () => {
@@ -29,6 +29,7 @@ test("search extractors read authors from allowed URLs only", () => {
     instagramAccountHandles({ accounts: [{ username: "One" }, { url: "https://www.instagram.com/two/" }, { username: "bad name" }] }),
     ["one", "two"],
   );
+  assert.deepEqual(instagramPostAuthors(fixture("instagram-search")), ["leonrdewa"]);
   assert.deepEqual(tiktokSearchHandles(fixture("tiktok-search-timeout")), []);
   assert.deepEqual(instagramAccountHandles(fixture("instagram-search-accounts-failed")), []);
 });
@@ -44,7 +45,8 @@ test("discover scores candidates by distinct signals and excludes seeds", async 
     },
     async runJson(args) {
       calls.push(args.slice(0, 3).join(" "));
-      if (args[0] === "instagram") return { ok: true, accounts: [{ username: "ig_studio" }] };
+      if (args[1] === "search_accounts") return { ok: true, accounts: [{ username: "ig_studio" }] };
+      if (args[0] === "instagram") return { posts: [{ author: "ig_studio" }] };
       if (args[2] === "anime football") return tiktokCards("rival", "seedcreator", "rival");
       return tiktokCards("rival", "partner_one");
     },
@@ -56,7 +58,7 @@ test("discover scores candidates by distinct signals and excludes seeds", async 
   });
 
   assert.deepEqual(result.queries, ["anime football", "worldcupanime", "mbappe"]);
-  assert.equal(calls.length, 6);
+  assert.equal(calls.length, 9);
   const byAccount = Object.fromEntries(result.candidates.map((c) => [c.account, c]));
   assert.equal(byAccount["tiktok@seedcreator"], undefined);
   assert.deepEqual(byAccount["tiktok@rival"].signals, ["hashtag:mbappe", "hashtag:worldcupanime", "keyword:anime football"]);
@@ -76,6 +78,7 @@ test("discover notes failed seeds and searches, keeps going, and never mocks res
     async runJson(args) {
       if (args[0] === "tiktok") return fixture("tiktok-search-timeout");
       if (args[2] === "boom") throw new Error("socai exited 1");
+      if (args[1] === "search") return { posts: [] };
       return fixture("instagram-search-accounts-failed");
     },
   };

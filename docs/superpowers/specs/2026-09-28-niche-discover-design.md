@@ -24,7 +24,8 @@ Seeds are full profile URLs (platform must be explicit).
    Top `--hashtags` hashtags (generic tags like `#fyp` removed) become extra
    keywords; `@mentions` become candidates.
 2. Each keyword (user keywords + harvested hashtags) → `tiktok search`
-   (author handle parsed from each video URL) and `instagram search_accounts`.
+   (author handle parsed from each video URL), `instagram search_accounts`,
+   and `instagram search` without `--preview` (opens each post, reads `author`).
 3. Candidate key = `platform@handle`. Signals = distinct sources
    (`keyword:x`, `hashtag:y`, `mention:<seed>`). Score = signal count.
    Seeds are excluded.
@@ -50,5 +51,6 @@ Commenters as candidates, second hop, dashboard page, Jev relevance judge.
 
 `tiktok search` times out (managed Chrome shows TikTok login page) and
 `instagram search_accounts` returns `search_control_not_found`. Both are
-captured as failure fixtures. `instagram search --preview` works but its
-cards carry no author, so it is not used.
+captured as failure fixtures. `instagram search --preview` cards carry no
+author; full `instagram search` does (live: 5 accounts for one keyword in 2 min).
+Hashtags ending in fyp/foryou/viral/trending are dropped as reach bait.

@@ -46,7 +46,7 @@ Profile options:
   Reports go to $JEV_SOCIAL_REPORTS_DIR or ~/.jev-social/reports
 
 Discover options:
-  --per-keyword <1-50>                 TikTok search results per keyword (default: 12)
+  --per-keyword <1-50>                 Search results per keyword and platform (default: 8)
   --hashtags <0-20>                    Seed hashtags reused as keywords (default: 5)
 
 Configuration (normally auto-loaded from .env):
@@ -125,7 +125,7 @@ try {
       {
         slug: flags.niche,
         niche,
-        perKeyword: Number(flags.perKeyword ?? 12),
+        perKeyword: Number(flags.perKeyword ?? 8),
         hashtags: Number(flags.hashtags ?? 5),
         onNote: (note) => console.error(`[discover] ${note}`),
       },

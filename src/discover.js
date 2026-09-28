@@ -1,9 +1,8 @@
 // Niche account discovery: one-hop snowball from keywords and seed profiles.
 // See docs/superpowers/specs/2026-09-28-niche-discover-design.md.
 import { buildActionArgs } from "./actions.js";
-import { parseProfileUrl, validateNiche, validateRange } from "./profile/domain.js";
+import { HANDLE, parseProfileUrl, validateNiche, validateRange } from "./profile/domain.js";
 
-const HANDLE = /^[A-Za-z0-9._]{1,64}$/;
 const TIKTOK_AUTHOR = /^https:\/\/www\.tiktok\.com\/@([A-Za-z0-9._]{1,64})\/video\/\d+/;
 const INSTAGRAM_PROFILE = /^https:\/\/www\.instagram\.com\/([A-Za-z0-9._]{1,64})\/?$/;
 // ponytail: fixed list of reach-bait tags; move to niches/<slug>.json if niches need their own.
@@ -18,7 +17,7 @@ export function topHashtags(texts, limit) {
   for (const text of texts) {
     for (const [, tag] of String(text || "").matchAll(/#([\p{L}\p{N}_]{2,50})/gu)) {
       const key = tag.toLowerCase();
-      if (!GENERIC_TAGS.has(key)) counts.set(key, (counts.get(key) || 0) + 1);
+      if (!GENERIC_TAGS.has(key) && !/(?:fyp|foryou|viral|trending)$/.test(key)) counts.set(key, (counts.get(key) || 0) + 1);
     }
   }
   return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit).map(([tag]) => tag);
@@ -39,6 +38,10 @@ export function tiktokSearchHandles(data) {
   return (data?.cards || []).map((card) => validHandle(TIKTOK_AUTHOR.exec(card?.url || "")?.[1])).filter(Boolean);
 }
 
+export function instagramPostAuthors(data) {
+  return (data?.posts || []).map((post) => validHandle(post?.author)).filter(Boolean);
+}
+
 export function instagramAccountHandles(data) {
   return (data?.accounts || [])
     .map((account) => validHandle(account?.username) || validHandle(INSTAGRAM_PROFILE.exec(account?.url || "")?.[1]))
@@ -53,7 +56,7 @@ function failure(data) {
 }
 
 // deps: { runJson(args), collector.collect(target) } ; niche: { keywords, seeds }
-export async function discover(deps, { slug, niche, perKeyword = 12, hashtags = 5, onNote = () => {}, signal }) {
+export async function discover(deps, { slug, niche, perKeyword = 8, hashtags = 5, onNote = () => {}, signal }) {
   validateNiche(slug);
   validateRange("--per-keyword", perKeyword, 1, 50);
   validateRange("--hashtags", hashtags, 0, 20);
@@ -89,6 +92,8 @@ export async function discover(deps, { slug, niche, perKeyword = 12, hashtags = 
     const searches = [
       ["tiktok", buildActionArgs({ platform: "tiktok", kind: "search", query, limit: perKeyword }), tiktokSearchHandles],
       ["instagram", ["instagram", "search_accounts", query, "--pretty"], instagramAccountHandles],
+      // Opens each post (slow) but works where search_accounts breaks; --preview cards carry no author.
+      ["instagram", ["instagram", "search", query, "--num", String(perKeyword), "--num-comments", "0", "--pretty"], instagramPostAuthors],
     ];
     for (const [platform, args, extract] of searches) {
       try {
