@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { fmtCompact, fmtDate, fmtNum, fmtPct, fmtRatio, isNum, NA, splitAccount } from '@/lib/format'
-import { itemRows, medianViewsOf, summarize, tierCohort, type AccountSummary, type ItemRow, type Tier } from '@/lib/metrics'
+import { copyAvoidFrom, itemRows, jevCohort, jevLabel, medianViewsOf, summarize, tierCohort, type AccountSummary, type ItemRow, type Tier } from '@/lib/metrics'
 import { T } from '@/lib/tokens'
 import { cn } from '@/lib/utils'
 import { accountExtrasMock } from '@/mocks/account'
-import type { CohortMetric, ReportEntry } from '@/types'
+import type { Cohort, CohortMetric, ReportEntry } from '@/types'
 import { NotFound } from './Home'
 
 export function AccountPage() {
@@ -86,7 +86,7 @@ function AccountView({ entry }: { entry: ReportEntry }) {
       </header>
 
       <KpiStrip s={summary} />
-      <KeyPoints entry={entry} summary={summary} />
+      <KeyPoints entry={entry} summary={summary} rows={rows} />
       <Cohorts entry={entry} rows={rows} />
       <ViewsSection rows={rows} median={medianViewsOf(d)} />
       <HookLab rows={rows} platform={platform} />
@@ -104,7 +104,7 @@ function KpiStrip({ s }: { s: AccountSummary }) {
     { label: 'Views / follower', value: fmtRatio(s.viewsPerFollower), hint: 'Median views divided by followers' },
     { label: 'Hit rate', value: fmtPct(s.hitRate, 0), hint: 'Share of items above 3× the median', tone: 'text-brand' },
     { label: 'Share rate', value: fmtPct(s.shareRate, 2), hint: 'Median of per-item shares / views' },
-    { label: 'Avg delay after news', value: `${accountExtrasMock.avgDelayAfterNewsHours} h`, hint: 'Time between a story breaking and the post', mock: true },
+    { label: 'Avg delay after news', value: '—', hint: 'Needs event dates from the Story radar' },
     { label: 'Posts / week', value: fmtNum(s.postsPerWeek, 2), hint: 'From item dates in the capture window' },
   ]
   return (
@@ -132,7 +132,7 @@ function KpiStrip({ s }: { s: AccountSummary }) {
 
 /* ---------------- Key points ---------------- */
 
-function KeyPoints({ entry, summary }: { entry: ReportEntry; summary: AccountSummary }) {
+function KeyPoints({ entry, summary, rows }: { entry: ReportEntry; summary: AccountSummary; rows: ItemRow[] }) {
   const d = entry.data
   const real = d.insights.length > 0
   const points = real ? d.insights.slice(0, 4) : accountExtrasMock.keyPoints.points
@@ -141,7 +141,10 @@ function KeyPoints({ entry, summary }: { entry: ReportEntry; summary: AccountSum
       ? `${fmtPct(summary.hitRate, 0)} of videos break 3× the median of ${fmtCompact(summary.medianViews)} views; ${d.insights[0].title.toLowerCase()} is the strongest pattern.`
       : d.insights[0].title
     : accountExtrasMock.keyPoints.verdict
-  const { copy, avoid } = accountExtrasMock.copyAvoid
+  const jev = (['theme', 'format', 'news'] as const).map((k) => jevCohort(d, rows, k)).filter((c): c is Cohort => c !== null)
+  const derived = copyAvoidFrom(jev, medianViewsOf(d))
+  const realCopy = jev.length > 0
+  const { copy, avoid } = realCopy ? derived : accountExtrasMock.copyAvoid
   return (
     <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
       <Panel className="p-5 sm:p-6">
@@ -175,8 +178,10 @@ function KeyPoints({ entry, summary }: { entry: ReportEntry; summary: AccountSum
       <Panel className="p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">What to copy / avoid</h2>
-          <MockBadge />
+          {realCopy ? null : <MockBadge />}
         </div>
+        {realCopy ? <p className="mt-1 text-xs text-dim">From Jev cohorts: 2+ videos at ≥1.5× or &lt;0.5× the median.</p> : null}
+        {realCopy && !copy.length && !avoid.length ? <p className="mt-4 text-sm text-dim">No group stands out yet. Collect more videos.</p> : null}
         <ul className="mt-4 space-y-2">
           {copy.map((c) => (
             <li key={c} className="flex gap-2 text-sm text-fg/90">
@@ -203,13 +208,18 @@ const COHORT_COLORS: Record<string, string[]> = {
   theme: [T.violet],
   format: [T.cyan],
   timing: [T.amber],
+  news: [T.amber],
   tier: [T.accent, T.violet, T.muted, T.line],
 }
 
 function Cohorts({ entry, rows }: { entry: ReportEntry; rows: ItemRow[] }) {
   const [metric, setMetric] = useState<CohortMetric>('medianViews')
   const [themeC, formatC, timingC] = accountExtrasMock.cohorts
-  const cohorts = [themeC, formatC, timingC, tierCohort(entry.data, rows)]
+  const real = (['theme', 'format', 'news'] as const).map((k) => jevCohort(entry.data, rows, k))
+  // Real Jev cohorts replace the mocks once the account is classified (`jev-social reports classify`).
+  const cohorts = real.every(Boolean)
+    ? [...(real as Cohort[]), tierCohort(entry.data, rows)]
+    : [themeC, formatC, timingC, tierCohort(entry.data, rows)]
   return (
     <section className="space-y-4">
       <SectionTitle
@@ -383,7 +393,13 @@ function VideosTable({ rows }: { rows: ItemRow[] }) {
     })
   }, [rows, sort])
   const toggle = (key: SortKey) => setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: -1 }))
-  const tags = accountExtrasMock.tagPool
+  const classified = rows.some((r) => r.jev)
+  const tagsOf = (r: ItemRow) =>
+    r.jev
+      ? { theme: jevLabel(r.jev.theme.value), format: jevLabel(r.jev.format.value), mock: false }
+      : classified
+        ? null
+        : { ...accountExtrasMock.tagPool[r.index % accountExtrasMock.tagPool.length], mock: true }
 
   const SortIcon = ({ k }: { k: SortKey }) =>
     sort.key !== k ? <ArrowUpDown className="size-3 opacity-50" /> : sort.dir === 1 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />
@@ -430,7 +446,7 @@ function VideosTable({ rows }: { rows: ItemRow[] }) {
                     <th className="px-2 py-3 font-medium">Caption</th>
                     <th className="px-2 py-3 font-medium">
                       <span className="inline-flex items-center gap-1.5">
-                        Theme / format <span className="size-1.5 rounded-full bg-amber" title="mock data" />
+                        Theme / format {!classified ? <span className="size-1.5 rounded-full bg-amber" title="mock data" /> : null}
                       </span>
                     </th>
                     {COLS.map((c) => (
@@ -445,7 +461,7 @@ function VideosTable({ rows }: { rows: ItemRow[] }) {
                 </thead>
                 <tbody>
                   {sorted.map((r) => {
-                    const t = tags[r.index % tags.length]
+                    const t = tagsOf(r)
                     return (
                       <tr key={r.url} className="border-b border-line/60 last:border-0 hover:bg-surface-2/50">
                         <td className="num px-4 py-3 text-xs text-dim">{r.index + 1}</td>
@@ -456,10 +472,14 @@ function VideosTable({ rows }: { rows: ItemRow[] }) {
                           </div>
                         </td>
                         <td className="px-2 py-3">
-                          <div className="flex gap-1">
-                            <Chip>{t.theme}</Chip>
-                            <Chip className="text-dim">{t.format}</Chip>
-                          </div>
+                          {t ? (
+                            <div className="flex gap-1">
+                              <Chip>{t.theme}</Chip>
+                              <Chip className="text-dim">{t.format}</Chip>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-dim italic">not classified</span>
+                          )}
                         </td>
                         <td className="num px-2 py-3 text-right text-fg">{fmtCompact(r.views)}</td>
                         <td className={cn('num px-2 py-3 text-right', TIER_TEXT[r.tier])}>{fmtRatio(r.xMedian, 1)}</td>
@@ -480,7 +500,7 @@ function VideosTable({ rows }: { rows: ItemRow[] }) {
           {/* Mobile cards */}
           <ul className="space-y-3 md:hidden">
             {sorted.map((r) => {
-              const t = tags[r.index % tags.length]
+              const t = tagsOf(r)
               return (
                 <li key={r.url} className="min-w-0 rounded-2xl border border-line bg-surface p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -491,9 +511,15 @@ function VideosTable({ rows }: { rows: ItemRow[] }) {
                     <ExtLink href={r.url} iconOnly className="shrink-0 p-1" />
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-1">
-                    <Chip>{t.theme}</Chip>
-                    <Chip className="text-dim">{t.format}</Chip>
-                    <span className="size-1.5 rounded-full bg-amber" aria-label="tags are mock data" />
+                    {t ? (
+                      <>
+                        <Chip>{t.theme}</Chip>
+                        <Chip className="text-dim">{t.format}</Chip>
+                        {t.mock ? <span className="size-1.5 rounded-full bg-amber" aria-label="tags are mock data" /> : null}
+                      </>
+                    ) : (
+                      <span className="text-xs text-dim italic">not classified</span>
+                    )}
                     {!r.detailCaptured ? <NotRead /> : null}
                   </div>
                   <dl className="num mt-3 grid grid-cols-3 gap-x-3 gap-y-2 text-xs">

@@ -194,7 +194,11 @@ Analyse one TikTok or Instagram profile into a private, local HTML report, group
 npm start -- profile https://www.tiktok.com/@somecreator --niche football-anime
 npm start -- profile @somecreator --niche football-anime   # platform unknown: TikTok, then Instagram
 npm start -- reports rebuild
+npm start -- reports import [dir...]      # load saved data.json reports into ~/.jev-social/jev-social.db
+npm start -- reports classify             # Jev: theme, format, news hook per video (decks in niches/<slug>.json)
 ```
+
+Reports and Jev classifications live in a local SQLite database (`node:sqlite`, Node 22.13+; `JEV_SOCIAL_DB` overrides the path). A niche is classified only when `niches/<slug>.json` exists; editing a deck re-classifies that niche on the next run.
 
 - A bare handle is tried on TikTok first, then on Instagram if TikTok reports the account as not found. A login prompt stops the run instead of falling through.
 - `--niche <slug>` — required, a lowercase slug like `football-anime` (a-z, 0-9, -)

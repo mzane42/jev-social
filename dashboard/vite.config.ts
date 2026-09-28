@@ -1,108 +1,70 @@
-import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 
 /**
- * Serves local jev-social report folders to the dashboard during `vite` dev.
+ * Serves the local jev-social database to the dashboard during `vite` dev.
  *
- * Layout on disk: <root>/<niche>/<platform@handle>/<YYYY-MM-DD>/data.json
- * Roots: JEV_SOCIAL_REPORTS_DIR (default ~/.jev-social/reports), then every
- * comma-separated entry in JEV_SOCIAL_EXTRA_REPORTS (read-only, lower priority).
- * Nothing is cached: new niches appear on the next request.
+ * Source: JEV_SOCIAL_DB (default ~/.jev-social/jev-social.db), written by
+ * `jev-social profile` and `jev-social reports import|classify`. Opened read-only,
+ * re-read on every request so new reports and classifications appear on reload.
+ * Each item carries `jev`: its latest Jev classification in that niche, or null.
  */
 
 const NICHE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/
 const ACCOUNT_RE = /^[a-z][a-z0-9]{0,19}@[A-Za-z0-9._-]{1,100}$/
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-function expandHome(p: string): string {
-  if (p === '~') return os.homedir()
-  if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2))
-  return p
-}
-
-function reportRoots(): string[] {
-  const primary = process.env.JEV_SOCIAL_REPORTS_DIR || path.join(os.homedir(), '.jev-social', 'reports')
-  const extra = (process.env.JEV_SOCIAL_EXTRA_REPORTS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const seen = new Set<string>()
-  return [primary, ...extra]
-    .map((p) => path.resolve(expandHome(p)))
-    .filter((p) => (seen.has(p) ? false : (seen.add(p), true)))
-}
-
-function safeSegment(seg: string): boolean {
-  return seg !== '.' && seg !== '..' && !seg.includes('/') && !seg.includes('\\') && !seg.includes('\0')
-}
-
-/** Resolves root/...segments and proves (through symlinks too) that it stays under root. */
-async function resolveInside(root: string, ...segments: string[]): Promise<string | null> {
-  if (!segments.every(safeSegment)) return null
-  try {
-    const realRoot = await fs.realpath(root)
-    const real = await fs.realpath(path.join(realRoot, ...segments))
-    return real.startsWith(realRoot + path.sep) ? real : null
-  } catch {
-    return null
-  }
-}
-
-async function listDirs(dir: string): Promise<string[]> {
-  try {
-    const entries = await fs.readdir(dir, { withFileTypes: true })
-    return entries.filter((e) => e.isDirectory()).map((e) => e.name)
-  } catch {
-    return []
-  }
-}
-
-async function readJson(file: string): Promise<unknown | null> {
-  try {
-    return JSON.parse(await fs.readFile(file, 'utf8'))
-  } catch {
-    return null
-  }
+function dbPath(): string {
+  const p = process.env.JEV_SOCIAL_DB || path.join(os.homedir(), '.jev-social', 'jev-social.db')
+  return path.resolve(p.startsWith('~/') ? path.join(os.homedir(), p.slice(2)) : p)
 }
 
 interface ReportEntry {
   niche: string
   account: string
   date: string
-  data: unknown
+  data: { snapshot?: { items?: { url: string; jev?: unknown }[] } }
 }
 
-async function scanReports(): Promise<ReportEntry[]> {
-  const out = new Map<string, ReportEntry>()
-  for (const root of reportRoots()) {
-    for (const niche of await listDirs(root)) {
-      if (!NICHE_RE.test(niche)) continue
-      const nicheDir = await resolveInside(root, niche)
-      if (!nicheDir) continue
-      for (const account of await listDirs(nicheDir)) {
-        if (!ACCOUNT_RE.test(account)) continue
-        const accountDir = await resolveInside(root, niche, account)
-        if (!accountDir) continue
-        for (const date of await listDirs(accountDir)) {
-          if (!DATE_RE.test(date)) continue
-          const key = `${niche}/${account}/${date}`
-          if (out.has(key)) continue // first root wins
-          const file = await resolveInside(root, niche, account, date, 'data.json')
-          if (!file) continue
-          const data = await readJson(file)
-          if (data && typeof data === 'object') out.set(key, { niche, account, date, data })
-        }
-      }
-    }
+type Row = Record<string, string | number | null>
+
+function readReports(): ReportEntry[] {
+  let db: DatabaseSync
+  try {
+    db = new DatabaseSync(dbPath(), { readOnly: true })
+  } catch {
+    return [] // no database yet: nothing imported
   }
-  return [...out.values()].sort((a, b) =>
-    a.niche.localeCompare(b.niche) || a.account.localeCompare(b.account) || b.date.localeCompare(a.date),
-  )
+  try {
+    const reports = db.prepare('SELECT niche, account, date, data FROM reports ORDER BY niche, account, date DESC').all() as Row[]
+    const classes = db
+      .prepare(
+        `SELECT c.* FROM classifications c
+         WHERE c.classified_at = (SELECT MAX(classified_at) FROM classifications WHERE url = c.url AND niche = c.niche)`,
+      )
+      .all() as Row[]
+    const byKey = new Map(
+      classes.map((c) => [
+        `${c.niche}\n${c.url}`,
+        {
+          theme: { value: c.theme, confidence: c.theme_conf },
+          format: { value: c.format, confidence: c.format_conf },
+          news: { value: c.news, confidence: c.news_conf },
+        },
+      ]),
+    )
+    return reports.map((r) => {
+      const data = JSON.parse(String(r.data)) as ReportEntry['data']
+      for (const item of data.snapshot?.items ?? []) item.jev = byKey.get(`${r.niche}\n${item.url}`) ?? null
+      return { niche: String(r.niche), account: String(r.account), date: String(r.date), data }
+    })
+  } finally {
+    db.close()
+  }
 }
 
 function send(res: ServerResponse, status: number, body: unknown) {
@@ -129,7 +91,7 @@ function reportsPlugin(): Plugin {
         const pathname = (req.url || '/').split('?')[0]
         try {
           if (pathname === '/reports' || pathname === '/reports/') {
-            return send(res, 200, await scanReports())
+            return send(res, 200, readReports())
           }
           const m = pathname.match(/^\/reports\/([^/]+)\/([^/]+)\/latest\/?$/)
           if (m) {
@@ -138,8 +100,8 @@ function reportsPlugin(): Plugin {
             if (!niche || !account || !NICHE_RE.test(niche) || !ACCOUNT_RE.test(account)) {
               return send(res, 400, { error: 'invalid niche or account' })
             }
-            // scanReports sorts dates newest first and applies root priority.
-            const hit = (await scanReports()).find((r) => r.niche === niche && r.account === account)
+            // readReports sorts dates newest first.
+            const hit = readReports().find((r) => r.niche === niche && r.account === account)
             if (hit) return send(res, 200, hit)
             return send(res, 404, { error: 'report not found' })
           }

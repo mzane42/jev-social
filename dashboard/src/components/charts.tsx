@@ -64,7 +64,7 @@ export function CohortBars({ cohort, metric, colors }: { cohort: Cohort; metric:
                     {props.payload.value.length > 20 ? `${props.payload.value.slice(0, 19)}…` : props.payload.value}
                   </text>
                   <text x={-8} y={11} textAnchor="end" fill={T.muted} fontSize={10} fontFamily={MONO}>
-                    n={b?.count ?? 0} · {b?.confidence}
+                    n={b?.count ?? 0} · {isNum(b?.jevConfidence) ? `conf ${b.jevConfidence.toFixed(2)}` : b?.confidence}
                   </text>
                 </g>
               )
@@ -82,8 +82,9 @@ export function CohortBars({ cohort, metric, colors }: { cohort: Cohort; metric:
                     {METRIC_LABEL[metric]}: <span className="text-fg">{fmtMetric(metric, p[metric])}</span>
                   </p>
                   <p className="num text-dim">
-                    videos: <span className="text-fg">{p.count}</span> · {p.confidence} confidence
+                    videos: <span className="text-fg">{p.count}</span> · {p.confidence} sample
                   </p>
+                  {isNum(p.jevConfidence) ? <p className="num text-dim">Jev confidence: <span className="text-fg">{p.jevConfidence.toFixed(2)}</span></p> : null}
                 </div>
               )
             }}
@@ -214,7 +215,7 @@ export function NicheScatter({ points }: { points: ScatterPoint[] }) {
 
 const SERIES = [T.violet, T.cyan, T.amber, T.accent, T.good]
 
-export function NicheCohortChart({ comparison }: { comparison: NicheCohortComparison }) {
+export function NicheCohortChart({ comparison, fmt = fmtCompact }: { comparison: NicheCohortComparison; fmt?: (v: number | null) => string }) {
   const data = comparison.buckets.map((b) => ({
     bucket: b,
     ...Object.fromEntries(comparison.rows.map((r) => [r.account, r.values[b] ?? null])),
@@ -225,7 +226,7 @@ export function NicheCohortChart({ comparison }: { comparison: NicheCohortCompar
         <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke={T.line} strokeDasharray="2 4" />
           <XAxis dataKey="bucket" tick={{ ...axisTick, fontFamily: undefined }} tickLine={false} axisLine={{ stroke: T.line }} interval={0} />
-          <YAxis tick={axisTick} tickLine={false} axisLine={false} width={44} tickFormatter={(v: number) => fmtCompact(v)} />
+          <YAxis tick={axisTick} tickLine={false} axisLine={false} width={44} tickFormatter={(v: number) => fmt(v)} />
           <Tooltip
             cursor={{ fill: T.surface2 }}
             content={({ active, payload, label }) => {
@@ -236,7 +237,7 @@ export function NicheCohortChart({ comparison }: { comparison: NicheCohortCompar
                   {payload.map((p) => (
                     <p key={String(p.dataKey)} className="num text-dim">
                       <span style={{ color: p.color }}>●</span> {String(p.dataKey).split('@')[1]}{' '}
-                      <span className="text-fg">{fmtCompact(p.value as number | null)}</span>
+                      <span className="text-fg">{fmt(p.value as number | null)}</span>
                     </p>
                   ))}
                 </div>

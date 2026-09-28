@@ -14,30 +14,29 @@ cd dashboard && npm install && npm run dev
 The report API only exists under `npm run dev` (a Vite `configureServer` middleware
 in `vite.config.ts`). `vite preview` and a static `dist/` build have no data.
 
-## Environment
+## Data
 
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `JEV_SOCIAL_REPORTS_DIR` | `~/.jev-social/reports` | Main reports root. |
-| `JEV_SOCIAL_EXTRA_REPORTS` | (none) | Extra read-only roots, comma-separated. Lower priority than the main root on collisions. |
+The API reads the local SQLite database written by the CLI, read-only, on every
+request (new reports appear on reload):
 
-Layout expected under each root: `<niche>/<platform@handle>/<YYYY-MM-DD>/data.json`.
-Folders are re-scanned on every request, so new niches appear on reload.
+| Variable | Default |
+| --- | --- |
+| `JEV_SOCIAL_DB` | `~/.jev-social/jev-social.db` |
 
-Example with extra roots:
+Fill it from the repo root:
 
 ```sh
-JEV_SOCIAL_EXTRA_REPORTS=/path/to/smoke-reports,/other/reports npm run dev
+npm start -- reports import                     # ~/.jev-social/reports
+npm start -- reports import path/to/other/reports
+npm start -- reports classify                   # Jev theme / format / news hook per video
 ```
 
 ## API
 
-- `GET /api/reports`: every `data.json` as `[{ niche, account, date, data }]`.
+- `GET /api/reports`: every report as `[{ niche, account, date, data }]`; each item
+  carries `jev` (its latest classification in that niche) or `null`.
 - `GET /api/reports/:niche/:account/latest`: newest report for one account
-  (`account` is the folder name, e.g. `tiktok%40handle`).
-
-Only directories under the configured roots are listed or read. Path segments are
-validated against strict patterns and resolved through `realpath` before any read.
+  (`account` is e.g. `tiktok%40handle`).
 
 ## Screens
 
@@ -48,10 +47,11 @@ validated against strict patterns and resolved through `realpath` before any rea
 
 ## Mock data
 
-Cohorts (theme, format, timing), key-point fallback, copy/avoid, hook notes,
-theme/format chips, the "avg delay after news" KPI, the niche cohort comparison and
-the whole story radar come from `src/mocks/` and carry a "mock data" badge. Their
-types live in `src/types.ts` so the backend can later fill the same shapes.
-Performance tiers are computed from real item views (hit > 3× median, flop < 0.2×).
+Real once an account is classified: theme, format and news-hook cohorts, theme/format
+chips, "what to copy / avoid" (buckets with 2+ videos at ≥1.5× or <0.5× the median),
+and the niche cohort comparison (bucket median ÷ account median). Performance tiers
+are always real. Still mock (badged): the key-point fallback when no insights exist,
+the hook lab notes, and the whole story radar. The "avg delay after news" KPI shows
+"—" until the Story radar supplies event dates.
 
 Report data is private: never commit it or copy it into fixtures.

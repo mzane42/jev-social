@@ -1,14 +1,15 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ChartScatter, EyeOff } from 'lucide-react'
 import { useShell } from '@/components/AppShell'
 import { NicheCohortChart, NicheScatter, type ScatterPoint } from '@/components/charts'
 import { EmptyState, MockBadge, Panel, PlatformPill, SectionTitle, Warning } from '@/components/kit'
 import { fmtCompact, fmtDate, fmtNum, fmtPct, fmtRatio, isNum, NA, splitAccount } from '@/lib/format'
-import { summarize, type AccountSummary } from '@/lib/metrics'
+import { JEV_COHORTS, nicheJevComparison, summarize, type AccountSummary } from '@/lib/metrics'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { nicheCohortMock } from '@/mocks/niche'
-import type { ReportEntry } from '@/types'
+import type { JevKey, ReportEntry } from '@/types'
 import { NotFound } from './Home'
 
 interface Row {
@@ -24,6 +25,7 @@ export function NichePage() {
   const { niche = '' } = useParams()
   const { niches } = useShell()
   const info = niches.find((n) => n.niche === niche)
+  const [jevKey, setJevKey] = useState<JevKey>('theme')
   const rows: Row[] = useMemo(
     () =>
       (info?.accounts ?? []).map((entry) => ({
@@ -43,7 +45,8 @@ export function NichePage() {
       ? [{ account: r.entry.account, followers: r.s.followers, medianViews: r.s.medianViews, hitRate: r.s.hitRate, platform: r.platform }]
       : [],
   )
-  const cohort = nicheCohortMock(rows.map((r) => r.entry.account))
+  const real = nicheJevComparison(rows.map((r) => r.entry), jevKey)
+  const cohort = real ?? nicheCohortMock(rows.map((r) => r.entry.account))
   const accountHref = (r: Row) => `/n/${encodeURIComponent(niche)}/a/${encodeURIComponent(r.entry.account)}`
 
   return (
@@ -163,8 +166,26 @@ export function NichePage() {
           ) : null}
         </Panel>
         <Panel className="p-5 sm:p-6">
-          <SectionTitle title="Cohort comparison" hint={cohort.title} right={<MockBadge />} />
-          <div className="mt-4">{rows.length ? <NicheCohortChart comparison={cohort} /> : <EmptyState title="No accounts" />}</div>
+          <SectionTitle
+            title="Cohort comparison"
+            hint={real ? `${cohort.title} · 1× = the account's usual video` : cohort.title}
+            right={
+              real ? (
+                <ToggleGroup type="single" value={jevKey} onValueChange={(v) => v && setJevKey(v as JevKey)} variant="outline" size="sm" aria-label="Cohort" className="flex-wrap">
+                  {JEV_COHORTS.map((c) => (
+                    <ToggleGroupItem key={c.key} value={c.key} className="px-3 text-xs data-[state=on]:bg-surface-2 data-[state=on]:text-fg">
+                      {c.title}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              ) : (
+                <MockBadge />
+              )
+            }
+          />
+          <div className="mt-4">
+            {rows.length ? <NicheCohortChart comparison={cohort} fmt={real ? (v) => fmtRatio(v, 1) : fmtCompact} /> : <EmptyState title="No accounts" />}
+          </div>
         </Panel>
       </div>
     </div>

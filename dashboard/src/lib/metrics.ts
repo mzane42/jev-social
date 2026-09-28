@@ -1,4 +1,4 @@
-import type { Cohort, CohortBucket, Confidence, ReportData, SnapshotItem } from '@/types'
+import type { Cohort, CohortBucket, CohortKind, Confidence, JevKey, NicheCohortComparison, ReportData, ReportEntry, SnapshotItem } from '@/types'
 import { isNum } from './format'
 
 export const HIT_X = 3
@@ -118,5 +118,101 @@ export function tierCohort(d: ReportData, rows = itemRows(d)): Cohort {
     takeaway: known
       ? `${hits} of ${known} videos with views are hits; ${buckets[3].count} are flops.`
       : 'No view counts captured, tiers unavailable.',
+  }
+}
+
+/** "premier_league" → "Premier league" (deck keys are snake_case). */
+export function jevLabel(key: string): string {
+  const s = key.replace(/_/g, ' ')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+export const JEV_COHORTS: { key: JevKey; kind: CohortKind; title: string; subtitle: string }[] = [
+  { key: 'theme', kind: 'theme', title: 'Theme / event', subtitle: 'What the video is about · Jev on caption + comments' },
+  { key: 'format', kind: 'format', title: 'Format', subtitle: 'How the video is built · Jev on caption, not on frames' },
+  { key: 'news', kind: 'news', title: 'News hook', subtitle: 'Rides a dated event or not · delay in hours needs Story radar' },
+]
+
+/** Buckets classified items by one Jev answer, sorted by median views. Null when nothing is classified. */
+export function jevCohort(d: ReportData, rows: ItemRow[], key: JevKey): Cohort | null {
+  const def = JEV_COHORTS.find((c) => c.key === key)!
+  const classified = rows.filter((r) => r.jev)
+  if (!classified.length) return null
+  const followers = d.snapshot.profile.followers
+  const groups = new Map<string, ItemRow[]>()
+  for (const r of classified) groups.set(r.jev![key].value, [...(groups.get(r.jev![key].value) ?? []), r])
+  const buckets: CohortBucket[] = [...groups.entries()]
+    .map(([value, r]) => {
+      const mv = median(r.map((x) => x.views))
+      return {
+        label: jevLabel(value),
+        count: r.length,
+        confidence: confidence(r.length),
+        medianViews: mv,
+        viewsPerFollower: isNum(mv) && isNum(followers) && followers > 0 ? mv / followers : null,
+        shareRate: median(r.map((x) => x.shareRate)),
+        jevConfidence: r.reduce((sum, x) => sum + x.jev![key].confidence, 0) / r.length,
+      }
+    })
+    .sort((a, b) => (b.medianViews ?? -1) - (a.medianViews ?? -1))
+  const top = buckets[0]
+  const overall = medianViewsOf(d)
+  const lift = isNum(top.medianViews) && isNum(overall) && overall > 0 ? top.medianViews / overall : null
+  return {
+    kind: def.kind,
+    title: def.title,
+    subtitle: def.subtitle,
+    mock: false,
+    buckets,
+    takeaway: isNum(lift)
+      ? `${top.label} leads: ${top.count} video${top.count > 1 ? 's' : ''} at ${lift.toFixed(1)}× the account median.${top.count < 3 ? ' Too few videos to trust.' : ''}`
+      : `${classified.length} of ${rows.length} videos classified; no view counts to compare.`,
+  }
+}
+
+/**
+ * Copy = buckets with 2+ videos at 1.5× the account median or more; avoid = 2+ videos under 0.5×.
+ * ponytail: fixed thresholds on tiny samples; revisit once accounts carry 50+ classified videos.
+ */
+export function copyAvoidFrom(cohorts: Cohort[], overall: number | null): { copy: string[]; avoid: string[] } {
+  const copy: string[] = []
+  const avoid: string[] = []
+  if (!isNum(overall) || overall <= 0) return { copy, avoid }
+  for (const c of cohorts) {
+    for (const b of c.buckets) {
+      if (b.count < 2 || !isNum(b.medianViews) || b.label === 'Other') continue
+      const x = b.medianViews / overall
+      const line = `${c.title}: ${b.label} (${b.count} videos, ${x.toFixed(1)}× median)`
+      if (x >= 1.5) copy.push(line)
+      else if (x < 0.5) avoid.push(line)
+    }
+  }
+  return { copy, avoid }
+}
+
+/**
+ * Per-account lift of each Jev bucket: bucket median views ÷ account median views.
+ * Ratios, not raw views, so a 1M-follower account does not flatten the others. Null when nothing is classified.
+ */
+export function nicheJevComparison(entries: ReportEntry[], key: JevKey): NicheCohortComparison | null {
+  const def = JEV_COHORTS.find((c) => c.key === key)!
+  const perAccount = entries.map((e) => ({ account: e.account, cohort: jevCohort(e.data, itemRows(e.data), key), med: medianViewsOf(e.data) }))
+  const counts = new Map<string, number>()
+  for (const { cohort } of perAccount) for (const b of cohort?.buckets ?? []) counts.set(b.label, (counts.get(b.label) ?? 0) + b.count)
+  if (!counts.size) return null
+  const buckets = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([label]) => label)
+  return {
+    kind: def.kind,
+    title: `${def.title}, median views ÷ account median`,
+    buckets,
+    mock: false,
+    rows: perAccount
+      .filter((a) => a.cohort)
+      .map(({ account, cohort, med }) => ({
+        account,
+        values: Object.fromEntries(
+          cohort!.buckets.map((b) => [b.label, isNum(b.medianViews) && isNum(med) && med > 0 ? b.medianViews / med : null]),
+        ),
+      })),
   }
 }

@@ -22,7 +22,17 @@ export interface SnapshotItem {
   saves: number | null
   topComments: TopComment[]
   detailCaptured: boolean
+  /** Latest Jev classification (from the local database), null when not classified. */
+  jev?: ItemJev | null
 }
+
+export interface JevAnswer {
+  value: string
+  confidence: number
+}
+
+export type JevKey = 'theme' | 'format' | 'news'
+export type ItemJev = Record<JevKey, JevAnswer>
 
 export interface Profile {
   displayName: string | null
@@ -86,7 +96,7 @@ export interface ReportEntry {
 /* Future shapes (served from mocks today, backend fills them later)   */
 /* ------------------------------------------------------------------ */
 
-export type CohortKind = 'theme' | 'format' | 'timing' | 'tier'
+export type CohortKind = 'theme' | 'format' | 'timing' | 'news' | 'tier'
 export type CohortMetric = 'medianViews' | 'viewsPerFollower' | 'shareRate'
 /** How much Jev trusts the bucket, driven mostly by sample size. */
 export type Confidence = 'low' | 'medium' | 'high'
@@ -98,6 +108,8 @@ export interface CohortBucket {
   medianViews: number | null
   viewsPerFollower: number | null
   shareRate: number | null
+  /** Mean Jev confidence of the videos in the bucket (Jev cohorts only). */
+  jevConfidence?: number | null
 }
 
 export interface Cohort {
