@@ -33,6 +33,7 @@ Usage:
   jev-social reports import [dir...]              Load saved data.json reports into the local database
   jev-social reports classify [--niche <slug>]    Jev-classify saved videos (theme, format, news hook)
   jev-social media <niche> [--top 5 --flops 3]    Download top/flop TikTok videos, frames, local transcript, hook
+  jev-social media <niche> --rehook               Re-read hooks from saved frames (no download)
 
 Search options:
   --platform <auto|instagram|tiktok|linkedin>  Platform hint (default: auto)
@@ -118,6 +119,7 @@ try {
       niche,
       top: validateRange("--top", Number(flags.top ?? 5), 0, 20),
       flops: validateRange("--flops", Number(flags.flops ?? 3), 0, 20),
+      rehook: Boolean(flags.rehook),
       log: (line) => console.error(line),
     });
     for (const note of result.notes) console.error(note);
@@ -177,7 +179,7 @@ async function profileDeps() {
     media: createLocalMedia({
       runJson: createSocaiRunJson({ config }),
       apiKey,
-      hookModel: String(process.env.OPENROUTER_HOOK_MODEL || "openai/gpt-4o-mini").trim(),
+      ...(process.env.OPENROUTER_HOOK_MODEL ? { hookModel: process.env.OPENROUTER_HOOK_MODEL.trim() } : {}),
     }),
     render: { report: renderReport, nicheIndex: renderNicheIndex, rootIndex: renderRootIndex },
   };
@@ -233,6 +235,7 @@ function parseArgs(args) {
     ["--no-open", "noOpen"],
     ["--skip-install", "skipInstall"],
     ["--install", "install"],
+    ["--rehook", "rehook"],
     ["--no-verify", "noVerify"],
   ]);
   const valueFlags = new Map([

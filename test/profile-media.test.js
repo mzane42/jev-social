@@ -74,3 +74,35 @@ test("download asks socai for media without paid transcription and copies files 
   assert.ok(calls[0].includes("--download-media"));
   assert.ok(!calls[0].includes("--transcribe-audio"));
 });
+
+test("rehook re-reads hooks from saved frames, keeps transcript and classification, never downloads", async () => {
+  const repo = createSqliteRepository({ db: openDatabase(":memory:"), files: { async writeIndex(rel) { return rel; } } });
+  repo.saveMedia("football-anime", { url: url(1), videoPath: "/m/v.mp4", frames: ["/m/f0.jpg"], transcript: "full text", head: "full", hookType: "on_screen_text", note: "old" });
+  repo.saveClassifications("v1", "football-anime", new Map([[url(1), { theme: { value: "other", confidence: 1 }, format: { value: "other", confidence: 1 }, news: { value: "evergreen", confidence: 1 } }]]));
+  const media = {
+    async download() { throw new Error("must not download"); },
+    async readHook({ frames, head }) { assert.deepEqual(frames, ["/m/f0.jpg"]); assert.equal(head, "full"); return { hookType: "no_hook", note: "new", model: "g" }; },
+  };
+  const result = await analyzeMedia({ media, repository: repo }, { niche: "football-anime", rehook: true });
+  assert.equal(result.processed, 1);
+  const row = repo.media("football-anime").get(url(1));
+  assert.equal(row.hook_type, "no_hook");
+  assert.equal(row.transcript, "full text");
+  assert.equal(repo.classifications("v1", "football-anime").has(url(1)), true);
+});
+
+test("readHook accepts JSON wrapped in a code fence", async () => {
+  const fenced = "```json\n" + JSON.stringify({ hook_type: "scoreline", first_seconds: "0-0 at 80:00." }) + "\n```";
+  const m = createLocalMedia({ runJson: null, apiKey: "k", root: "/tmp", fetchImpl: async () => Response.json({ model: "s", choices: [{ message: { content: fenced } }] }) });
+  const frame = new URL("./fixtures/profile/tiktok-author.json", import.meta.url).pathname;
+  assert.equal((await m.readHook({ frames: [frame], head: "", caption: "" })).hookType, "scoreline");
+});
+
+test("a failed rehook keeps the previous hook reading", async () => {
+  const repo = createSqliteRepository({ db: openDatabase(":memory:"), files: { async writeIndex(rel) { return rel; } } });
+  repo.saveMedia("football-anime", { url: url(1), frames: ["/m/f0.jpg"], transcript: "t", head: "h", hookType: "scoreline", note: "kept" });
+  const media = { async readHook() { throw new Error("timeout"); } };
+  const result = await analyzeMedia({ media, repository: repo }, { niche: "football-anime", rehook: true });
+  assert.equal(result.processed, 0);
+  assert.equal(repo.media("football-anime").get(url(1)).hook_type, "scoreline");
+});

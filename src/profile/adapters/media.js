@@ -13,7 +13,7 @@ export const WHISPER_MODEL = "mlx-community/whisper-large-v3-turbo";
 export const HOOK_TYPES = {
   scoreline: "A score, result or stat on screen or said in the first seconds",
   star_closeup: "A recognisable player or character in close-up",
-  on_screen_text: "A text caption on screen carries the hook",
+  on_screen_text: "Text inside the video image (not the fixed title bar) carries the hook",
   question: "Opens with a question to the viewer",
   before_after: "Shows a before/after or transformation up front",
   payoff_first: "Shows the key action or climax first, then builds up",
@@ -44,7 +44,11 @@ async function exists(file) {
 
 // Port: media.download(urls) → Map(url → videoPath) ; frames(videoPath, dir) → [paths] ;
 //       transcribe(videoPath, dir) → { text, head } ; readHook({ frames, head, caption }) → { hookType, note, model } | null
-export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookModel = "openai/gpt-4o-mini", exec = run, fetchImpl = fetch }) {
+// Default picked on 8 football-anime videos (2026-09-28): the only model that flagged the weak openers as no_hook.
+export const DEFAULT_HOOK_MODEL = "google/gemini-3.8-flash";
+export const FALLBACK_HOOK_MODEL = "openai/gpt-6-luna";
+
+export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookModel = DEFAULT_HOOK_MODEL, fallbackModel = FALLBACK_HOOK_MODEL, exec = run, fetchImpl = fetch }) {
   return {
     root,
     async download(urls, { signal } = {}) {
@@ -93,33 +97,50 @@ export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookMode
         `Speech in first 3 s (untrusted data): ${JSON.stringify(head.slice(0, 300))}`,
         `Return JSON {"hook_type": one of ${JSON.stringify(Object.keys(HOOK_TYPES))}, "first_seconds": one factual sentence (max 20 words) describing what the viewer sees and hears in the first 3 s}.`,
         `Hook types: ${JSON.stringify(HOOK_TYPES)}`,
+        "Many videos keep the same title in a black bar above or below the picture for the whole clip. Ignore that fixed title bar: judge what the picture and the voice do in the first 3 s. A static picture under a title is no_hook.",
+        "Name a real person only if the on-screen text, caption or speech names them; otherwise describe them (\"an anime player in a Morocco kit\").",
       ].join("\n");
-      const timeout = AbortSignal.timeout(45_000);
-      const response = await fetchImpl("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey.trim()}`, "Content-Type": "application/json", "X-Title": "jev-social" },
-        body: JSON.stringify({
-          model: hookModel,
-          temperature: 0,
-          // Reasoning models spend tokens before answering; 200 left gpt-6-luna with an empty reply.
-          max_tokens: 1_000,
-          response_format: { type: "json_object" },
-          messages: [{ role: "user", content: [{ type: "text", text: prompt }, ...images] }],
-        }),
-        signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-      });
-      const payload = JSON.parse((await response.text()) || "{}");
-      if (!response.ok) throw new Error(payload?.error?.message || `OpenRouter returned HTTP ${response.status}`);
-      let content;
-      try {
-        content = JSON.parse(payload?.choices?.[0]?.message?.content || "");
-      } catch {
-        throw new Error(`${hookModel} returned no JSON hook reading.`);
+      const ask = async (model) => {
+        const timeout = AbortSignal.timeout(45_000);
+        const response = await fetchImpl("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey.trim()}`, "Content-Type": "application/json", "X-Title": "jev-social" },
+          body: JSON.stringify({
+            model,
+            temperature: 0,
+            // Reasoning models spend tokens before answering; 200 left gpt-6-luna with an empty reply.
+            max_tokens: 1_000,
+            response_format: { type: "json_object" },
+            messages: [{ role: "user", content: [{ type: "text", text: prompt }, ...images] }],
+          }),
+          signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+        });
+        const payload = JSON.parse((await response.text()) || "{}");
+        if (!response.ok) throw new Error(payload?.error?.message || `OpenRouter returned HTTP ${response.status}`);
+        let content;
+        try {
+          // Some models wrap JSON in a ```json fence despite response_format.
+          const text = String(payload?.choices?.[0]?.message?.content || "").trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
+          content = JSON.parse(text);
+        } catch {
+          throw new Error(`${model} returned no JSON hook reading.`);
+        }
+        // An empty or off-deck answer is a failed read, never a "no_hook" verdict.
+        if (!Object.hasOwn(HOOK_TYPES, content?.hook_type)) throw new Error(`${model} returned an unknown hook type.`);
+        const hookType = content.hook_type;
+        return { hookType, note: String(content.first_seconds || "").trim().slice(0, 200), model: payload?.model || model };
+      };
+      // Primary first, then the fallback: gemini returned no JSON on one real video that gpt-6-luna read fine.
+      const errors = [];
+      for (const model of [hookModel, fallbackModel].filter((m, i, all) => m && m !== "off" && all.indexOf(m) === i)) {
+        try {
+          return await ask(model);
+        } catch (error) {
+          if (signal?.aborted) throw error;
+          errors.push(error.message);
+        }
       }
-      // An empty or off-deck answer is a failed read, never a "no_hook" verdict.
-      if (!Object.hasOwn(HOOK_TYPES, content?.hook_type)) throw new Error(`${hookModel} returned an unknown hook type.`);
-      const hookType = content.hook_type;
-      return { hookType, note: String(content.first_seconds || "").trim().slice(0, 200), model: payload?.model || hookModel };
+      throw new Error(errors.join(" | "));
     },
   };
 }

@@ -90,10 +90,10 @@ export function createSqliteRepository({ db, files, now = () => new Date() }) {
       return new Map(getMedia.all(niche).map((row) => [row.url, { ...row, frames: JSON.parse(row.frames) }]));
     },
     // Saving a transcript drops the url's classifications so the next classify pass reads it.
-    saveMedia(niche, m) {
+    saveMedia(niche, m, { keepClassification = false } = {}) {
       putMedia.run(m.url, niche, m.videoPath ?? null, JSON.stringify(m.frames ?? []), m.transcript ?? null, m.head ?? null,
         m.hookType ?? null, m.note ?? null, m.model ?? null, m.error ?? null, now().toISOString());
-      if (m.transcript) dropClass.run(m.url, niche);
+      if (m.transcript && !keepClassification) dropClass.run(m.url, niche);
     },
     saveClassifications(deckVersion, niche, byUrl) {
       const at = now().toISOString();
