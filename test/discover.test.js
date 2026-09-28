@@ -117,3 +117,9 @@ test("saveCandidates upserts score and signals but keeps first_seen", async () =
   assert.match(row.first_seen, /^2026-09-01/);
   assert.match(row.last_seen, /^2026-09-02/);
 });
+
+test("discover searches only the requested platforms", async () => {
+  const calls = [];
+  await discover({ collector: {}, runJson: async (args) => (calls.push(args[0]), {}) }, { slug: "x", niche: { keywords: ["k"] }, platforms: ["instagram"] });
+  assert.deepEqual(calls, ["instagram", "instagram"]);
+});

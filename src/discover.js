@@ -56,7 +56,7 @@ function failure(data) {
 }
 
 // deps: { runJson(args), collector.collect(target) } ; niche: { keywords, seeds }
-export async function discover(deps, { slug, niche, perKeyword = 8, hashtags = 5, onNote = () => {}, signal }) {
+export async function discover(deps, { slug, niche, perKeyword = 8, hashtags = 5, platforms = ["tiktok", "instagram"], onNote = () => {}, signal }) {
   validateNiche(slug);
   validateRange("--per-keyword", perKeyword, 1, 50);
   validateRange("--hashtags", hashtags, 0, 20);
@@ -95,7 +95,7 @@ export async function discover(deps, { slug, niche, perKeyword = 8, hashtags = 5
       // Opens each post (slow) but works where search_accounts breaks; --preview cards carry no author.
       ["instagram", ["instagram", "search", query, "--num", String(perKeyword), "--num-comments", "0", "--pretty"], instagramPostAuthors],
     ];
-    for (const [platform, args, extract] of searches) {
+    for (const [platform, args, extract] of searches.filter(([p]) => platforms.includes(p))) {
       try {
         const data = await deps.runJson(args, { signal });
         const failed = failure(data);

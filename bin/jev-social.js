@@ -48,6 +48,7 @@ Profile options:
 Discover options:
   --per-keyword <1-50>                 Search results per keyword and platform (default: 8)
   --hashtags <0-20>                    Seed hashtags reused as keywords (default: 5)
+  --platform <tiktok|instagram>        Search one platform only (default: both)
 
 Configuration (normally auto-loaded from .env):
   --api-key <key>                      OpenRouter API key (prompt is safer)
@@ -127,6 +128,7 @@ try {
         niche,
         perKeyword: Number(flags.perKeyword ?? 8),
         hashtags: Number(flags.hashtags ?? 5),
+        platforms: flags.platform && flags.platform !== "auto" ? [flags.platform] : undefined,
         onNote: (note) => console.error(`[discover] ${note}`),
       },
     );
