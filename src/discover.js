@@ -97,9 +97,12 @@ export async function discover(deps, { slug, niche, perKeyword = 8, hashtags = 5
     ];
     for (const [platform, args, extract] of searches.filter(([p]) => platforms.includes(p))) {
       try {
-        const data = await deps.runJson(args, { signal });
+        const data = platform === "tiktok" && deps.tiktokSearch
+          ? await deps.tiktokSearch(query, perKeyword, { signal })
+          : await deps.runJson(args, { signal });
         const failed = failure(data);
         if (failed) onNote(`${platform} "${query}": ${failed}`);
+        if (data?.recovered) onNote(`${platform} "${query}": ${data.cards.length} cards recovered from ${data.recovered}`);
         for (const handle of extract(data)) add(platform, handle, source);
       } catch (error) {
         onNote(`${platform} "${query}": ${error.message}`);
