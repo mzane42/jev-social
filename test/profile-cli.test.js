@@ -21,13 +21,13 @@ function run(args) {
 test("bare `reports` (no subcommand) fails with a usage message, without touching profile deps", () => {
   const result = run(["reports"]);
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /Usage: jev-social reports rebuild/);
+  assert.match(result.stderr, /Usage: jev-social reports rebuild\|import\|classify/);
 });
 
 test("`reports` with an unknown subcommand fails with the same usage message", () => {
   const result = run(["reports", "bogus"]);
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /Usage: jev-social reports rebuild/);
+  assert.match(result.stderr, /Usage: jev-social reports rebuild\|import\|classify/);
 });
 
 function descriptionColumn(line) {

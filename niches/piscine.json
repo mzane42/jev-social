@@ -1,0 +1,15 @@
+{
+  "themes": {
+    "cleaning_restoration": "Cleaning or restoring a dirty, green or abandoned pool or spa",
+    "installation_build": "Building a pool or installing equipment (cover, lighting, liner)",
+    "client_story": "Story about a client, a neighbour, a rich owner or an apprentice",
+    "off_topic_craft": "Another craft or trade than pools (watches, cars...)",
+    "other": "Anything else or not enough information"
+  },
+  "formats": {
+    "before_after": "Before/after transformation, satisfying reveal",
+    "storytime": "First-person storytime told over the work",
+    "asmr_process": "Silent or ASMR process footage without a story",
+    "other": "Anything else or not enough information"
+  }
+}

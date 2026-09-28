@@ -1,0 +1,16 @@
+{
+  "themes": {
+    "famous_place": "A famous or recognisable place, brand or person's property (Marineland, a film house, a star's villa)",
+    "abandoned_animals": "Abandoned zoo, aquarium or animals",
+    "creepy_place": "Hospital, asylum or place sold as scary",
+    "vehicles_industry": "Factory, planes, cars or industrial site",
+    "village_or_house": "Ordinary abandoned house or village",
+    "other": "Anything else or not enough information"
+  },
+  "formats": {
+    "infiltration_pov": "First-person entry or infiltration, 'I break into...'",
+    "guided_visit": "Calm guided visit or tour",
+    "guess_challenge": "Asks the viewer to guess the place or the owner in comments",
+    "other": "Anything else or not enough information"
+  }
+}

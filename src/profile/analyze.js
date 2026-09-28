@@ -2,6 +2,8 @@
 //   collector.collect({ platform, handle, url, videos, deep, signal }) → { profile, items, partial, partialReason }
 //   insights.write({ snapshot, metrics, signal }) → Insight[] | null (null = disabled)
 //   repository.save(record) → { dir }; repository.listLatest() → entries; repository.writeIndex(relPath, html)
+//   classifier.classify({ deck, items, signal }) → Map(url → { theme, format, news, model }) ; classifier null = disabled
+//   loadDeck(niche) → { niche, themes, formats, version } | null (no deck = no classification)
 //   render.report(record) / render.nicheIndex(niche, entries) / render.rootIndex(niches) → html
 import { computeMetrics, parseProfileTargets, validateNiche, validateRange } from "./domain.js";
 
@@ -61,8 +63,40 @@ export async function analyzeProfile(deps, { url, niche, videos = 12, deep = 3, 
 
   const record = { snapshot, metrics, insights: list, insightNotice };
   const { dir } = await repository.save({ ...record, html: render.report({ ...record, version }) });
+  const classification = await classifyItems(deps, niche, snapshot.items, signal);
   await rebuildIndexes({ repository, render });
-  return { dir, snapshot, metrics, insights: list };
+  return { dir, snapshot, metrics, insights: list, classification };
+}
+
+// Classifies items not yet classified under the niche's current deck. Never fails the caller:
+// a Jev outage leaves the report saved and says why.
+export async function classifyItems({ classifier, loadDeck, repository }, niche, items, signal) {
+  if (!classifier || !loadDeck || !repository.classifications) return { classified: 0, skipped: "classification disabled" };
+  const deck = await loadDeck(niche);
+  if (!deck) return { classified: 0, skipped: `no deck at niches/${niche}.json` };
+  const done = repository.classifications(deck.version, niche);
+  const todo = items.filter((item) => !done.has(item.url));
+  if (!todo.length) return { classified: 0, skipped: null };
+  try {
+    const result = await classifier.classify({ deck, items: todo, signal });
+    repository.saveClassifications(deck.version, niche, result);
+    return { classified: result.size, skipped: null };
+  } catch (error) {
+    if (error.partial?.size) repository.saveClassifications(deck.version, niche, error.partial);
+    return { classified: error.partial?.size ?? 0, skipped: `Jev classification failed: ${error.message}` };
+  }
+}
+
+export async function classifyReports(deps, { niche, signal } = {}) {
+  let classified = 0;
+  const notes = [];
+  for (const entry of await deps.repository.listLatest()) {
+    if (niche && entry.niche !== niche) continue;
+    const result = await classifyItems(deps, entry.niche, entry.data.snapshot.items, signal);
+    classified += result.classified;
+    if (result.skipped) notes.push(`${entry.niche}/${entry.account}: ${result.skipped}`);
+  }
+  return { classified, notes };
 }
 
 export async function rebuildIndexes({ repository, render }) {

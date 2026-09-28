@@ -1,0 +1,19 @@
+{
+  "themes": {
+    "world_cup": "World Cup or international tournament match or moment",
+    "premier_league": "Premier League match, club or moment",
+    "champions_league": "Champions League match, club or moment",
+    "other_league": "Another league or competition (LaLiga, Serie A, Ligue 1, EFL...)",
+    "club_drama": "Club crisis, feud, manager or board drama, fan frustration, not tied to one match",
+    "player_story": "One player's story, transfer or personal arc, not a single match",
+    "other": "Anything else or not enough information"
+  },
+  "formats": {
+    "match_recap": "A real match or its key moments retold as anime",
+    "opening_trailer": "Anime opening, intro or trailer for a season, competition or club",
+    "versus_crossover": "Comparison or crossover with a known anime (league vs league, player vs character)",
+    "reaction_meme": "Short meme or reaction about a result or a club",
+    "character_showcase": "Showcase of one player or club as an anime character, no match arc",
+    "other": "Anything else or not enough information"
+  }
+}

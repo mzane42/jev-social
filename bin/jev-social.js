@@ -11,9 +11,10 @@ import { probeSocai } from "../src/socai.js";
 import { startServer } from "../src/server.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { analyzeProfile, rebuildIndexes } from "../src/profile/analyze.js";
+import { analyzeProfile, classifyReports, rebuildIndexes } from "../src/profile/analyze.js";
 import { createFsRepository, reportsRoot } from "../src/profile/adapters/fs-repository.js";
 import { renderNicheIndex, renderReport, renderRootIndex } from "../src/profile/adapters/html-renderer.js";
+import { createJevClassifier, loadDeck } from "../src/profile/adapters/jev-classifier.js";
 import { createOpenRouterInsights } from "../src/profile/adapters/openrouter-insights.js";
 import { createSocaiCollector, createSocaiRunJson } from "../src/profile/adapters/socai-collector.js";
 
@@ -27,6 +28,8 @@ Usage:
   jev-social serve [--port 8766] [--no-open]      Start local preview
   jev-social profile <url> --niche <slug>         Analyse a TikTok/Instagram profile; <url> may be a bare @handle
   jev-social reports rebuild                      Regenerate report index pages
+  jev-social reports import [dir...]              Load saved data.json reports into the local database
+  jev-social reports classify [--niche <slug>]    Jev-classify saved videos (theme, format, news hook)
 
 Search options:
   --platform <auto|instagram|tiktok|linkedin>  Platform hint (default: auto)
@@ -101,12 +104,31 @@ try {
     });
     if (result.snapshot.fallbackFrom) console.error(`Not found, fell back: ${result.snapshot.fallbackFrom}`);
     if (result.snapshot.partial) console.error(`Partial capture: ${result.snapshot.partialReason}`);
+    if (result.classification.skipped) console.error(result.classification.skipped);
     console.log(path.join(result.dir, "report.html"));
   } else if (command === "reports") {
-    if (rest[0] !== "rebuild") throw new Error("Usage: jev-social reports rebuild");
+    if (!["rebuild", "import", "classify"].includes(rest[0])) throw new Error("Usage: jev-social reports rebuild|import|classify");
     const deps = await profileDeps();
-    const counts = await rebuildIndexes(deps);
-    console.log(`${counts.niches} niches, ${counts.accounts} accounts → ${path.join(reportsRoot(), "index.html")}`);
+    if (rest[0] === "import") {
+      // ponytail: imports the latest report per account only; history stays in the folders.
+      let count = 0;
+      for (const root of rest.length > 1 ? rest.slice(1) : [reportsRoot()]) {
+        for (const entry of await createFsRepository({ root }).listLatest()) {
+          deps.repository.importReport(entry.data);
+          count += 1;
+        }
+      }
+      console.log(`${count} reports imported → ${deps.dbPath}`);
+    } else if (rest[0] === "classify") {
+      const flags = parseArgs(rest.slice(1));
+      if (!deps.classifier) throw new Error("Jev is not configured: set OPENROUTER_API_KEY or JEV_SOCIAL_SYSTEM_ONE_URL.");
+      const { classified, notes } = await classifyReports(deps, { niche: flags.niche });
+      for (const note of notes) console.error(note);
+      console.log(`${classified} videos classified`);
+    } else {
+      const counts = await rebuildIndexes(deps);
+      console.log(`${counts.niches} niches, ${counts.accounts} accounts → ${path.join(reportsRoot(), "index.html")}`);
+    }
   } else {
     throw new Error(`Unknown command: ${command}\n\n${HELP}`);
   }
@@ -119,14 +141,21 @@ try {
 async function profileDeps() {
   const config = await readConfig();
   const { version } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  // node:sqlite needs Node 22.13+; loaded here so the other commands keep running on Node 20.
+  const { createSqliteRepository, databasePath, openDatabase } = await import("../src/profile/adapters/sqlite-repository.js");
+  const apiKey = resolveApiKey(config);
+  const provider = resolveDecisionProvider();
   return {
     version,
     collector: createSocaiCollector({ runJson: createSocaiRunJson({ config }) }),
     insights: createOpenRouterInsights({
-      apiKey: resolveApiKey(config),
+      apiKey,
       model: String(process.env.OPENROUTER_REPORT_MODEL || "openai/gpt-4o-mini").trim(),
     }),
-    repository: createFsRepository({ root: reportsRoot() }),
+    dbPath: databasePath(),
+    repository: createSqliteRepository({ db: openDatabase(databasePath()), files: createFsRepository({ root: reportsRoot() }) }),
+    classifier: provider.kind === "local" || apiKey ? createJevClassifier({ apiKey, provider }) : null,
+    loadDeck,
     render: { report: renderReport, nicheIndex: renderNicheIndex, rootIndex: renderRootIndex },
   };
 }

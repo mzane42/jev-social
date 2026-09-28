@@ -1,0 +1,15 @@
+{
+  "themes": {
+    "quick_recipe": "Quick everyday recipe",
+    "dessert_baking": "Dessert, pastry or baking",
+    "street_or_fast_food": "Street food, fast food or copycat of a chain",
+    "healthy": "Healthy, diet or protein food",
+    "other": "Anything else or not enough information"
+  },
+  "formats": {
+    "step_by_step": "Step-by-step recipe with ingredients",
+    "taste_reaction": "Tasting, review or reaction",
+    "asmr_cooking": "ASMR cooking without talking",
+    "other": "Anything else or not enough information"
+  }
+}
