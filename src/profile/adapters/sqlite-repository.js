@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS classifications (
   news TEXT NOT NULL, news_conf REAL NOT NULL,
   model TEXT, classified_at TEXT NOT NULL,
   PRIMARY KEY (url, deck_version)
+);
+CREATE TABLE IF NOT EXISTS candidates (
+  niche TEXT NOT NULL, account TEXT NOT NULL, score INTEGER NOT NULL,
+  signals TEXT NOT NULL, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
+  PRIMARY KEY (niche, account)
 );`;
 
 export function openDatabase(file) {
@@ -41,6 +46,8 @@ export function createSqliteRepository({ db, files, now = () => new Date() }) {
     (url, deck_version, niche, theme, theme_conf, format, format_conf, news, news_conf, model, classified_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const getClass = db.prepare("SELECT * FROM classifications WHERE deck_version = ? AND niche = ?");
+  const putCandidate = db.prepare(`INSERT INTO candidates (niche, account, score, signals, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT (niche, account) DO UPDATE SET score = excluded.score, signals = excluded.signals, last_seen = excluded.last_seen`);
 
   const put = ({ snapshot, metrics, insights, insightNotice = null }) => {
     const account = `${snapshot.platform}@${snapshot.handle}`;
@@ -71,6 +78,10 @@ export function createSqliteRepository({ db, files, now = () => new Date() }) {
         news: { value: row.news, confidence: row.news_conf },
         model: row.model,
       }]));
+    },
+    saveCandidates(niche, candidates) {
+      const at = now().toISOString();
+      for (const c of candidates) putCandidate.run(niche, c.account, c.score, JSON.stringify(c.signals), at, at);
     },
     saveClassifications(deckVersion, niche, byUrl) {
       const at = now().toISOString();
