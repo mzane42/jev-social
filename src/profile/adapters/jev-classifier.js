@@ -24,9 +24,11 @@ export async function loadDeck(niche, dir = new URL("../../../niches/", import.m
   for (const key of ["themes", "formats"]) {
     if (!deck?.[key] || !Object.hasOwn(deck[key], "other")) throw new Error(`niches/${niche}.json: "${key}" must include "other".`);
   }
+  // Optional per-niche hook types for `media`; the fixed HOOK_TYPES apply without them.
+  if (deck.hooks && !Object.hasOwn(deck.hooks, "no_hook")) throw new Error(`niches/${niche}.json: "hooks" must include "no_hook".`);
   // Cache key: editing a deck (or the news criteria) re-classifies; nothing else does.
   const version = createHash("sha256").update(JSON.stringify([deck.themes, deck.formats, NEWS_CRITERIA])).digest("hex").slice(0, 12);
-  return { niche, themes: deck.themes, formats: deck.formats, version };
+  return { niche, themes: deck.themes, formats: deck.formats, hooks: deck.hooks ?? null, version };
 }
 
 export function classificationText(item) {

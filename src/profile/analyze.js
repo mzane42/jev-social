@@ -129,7 +129,8 @@ export function pickMediaTargets(entries, done, { top = 5, flops = 3 } = {}) {
 // One failed video is recorded with its error and never stops the batch.
 export async function analyzeMedia(deps, { niche, top = 5, flops = 3, rehook = false, log = () => {}, signal }) {
   const { media, repository } = deps;
-  if (rehook) return rereadHooks(deps, { niche, log, signal });
+  const hookTypes = (await deps.loadDeck?.(niche))?.hooks ?? undefined;
+  if (rehook) return rereadHooks(deps, { niche, hookTypes, log, signal });
   const entries = (await repository.listLatest()).filter((entry) => entry.niche === niche && entry.data.snapshot.platform === "tiktok");
   const targets = pickMediaTargets(entries, repository.media(niche), { top, flops });
   let processed = 0;
@@ -145,7 +146,7 @@ export async function analyzeMedia(deps, { niche, top = 5, flops = 3, rehook = f
       try {
         const frames = await media.frames(videoPath);
         const { text, head } = await media.transcribe(videoPath);
-        const hook = await media.readHook({ frames, head, caption: item.caption, signal }).catch((error) => ({ error: error.message }));
+        const hook = await media.readHook({ frames, head, caption: item.caption, hookTypes, signal }).catch((error) => ({ error: error.message }));
         repository.saveMedia(niche, { url: item.url, videoPath, frames, transcript: text, head, ...hook });
         processed += 1;
         log(`  ${item.url.split("/").pop()}: ${hook?.hookType ?? "no hook read"}`);
@@ -158,12 +159,12 @@ export async function analyzeMedia(deps, { niche, top = 5, flops = 3, rehook = f
   return { processed, classified: classification.classified, notes: classification.notes };
 }
 // Re-reads hooks from frames already on disk (model or prompt change); keeps video, frames and transcript.
-async function rereadHooks({ media, repository }, { niche, log, signal }) {
+async function rereadHooks({ media, repository }, { niche, hookTypes, log, signal }) {
   const captions = new Map((await repository.listLatest()).filter((e) => e.niche === niche).flatMap((e) => e.data.snapshot.items.map((i) => [i.url, i.caption])));
   let processed = 0;
   for (const row of repository.media(niche).values()) {
     if (!row.frames.length) continue;
-    const hook = await media.readHook({ frames: row.frames, head: row.transcript_head || "", caption: captions.get(row.url), signal })
+    const hook = await media.readHook({ frames: row.frames, head: row.transcript_head || "", caption: captions.get(row.url), hookTypes, signal })
       .catch((error) => ({ error: error.message }));
     // A failed re-read keeps the previous reading instead of overwriting it with an error.
     if (!hook?.error) {

@@ -43,7 +43,7 @@ async function exists(file) {
 }
 
 // Port: media.download(urls) → Map(url → videoPath) ; frames(videoPath, dir) → [paths] ;
-//       transcribe(videoPath, dir) → { text, head } ; readHook({ frames, head, caption }) → { hookType, note, model } | null
+//       transcribe(videoPath, dir) → { text, head } ; readHook({ frames, head, caption, hookTypes? }) → { hookType, note, model } | null
 // Default picked on 8 football-anime videos (2026-09-28): the only model that flagged the weak openers as no_hook.
 export const DEFAULT_HOOK_MODEL = "google/gemini-3.8-flash";
 export const FALLBACK_HOOK_MODEL = "openai/gpt-6-luna";
@@ -81,11 +81,12 @@ export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookMode
     async transcribe(videoPath) {
       const dir = path.dirname(videoPath);
       await exec("mlx_whisper", [videoPath, "--model", WHISPER_MODEL, "--output-format", "json", "--output-dir", dir, "--output-name", "transcript"], { maxBuffer: 16 * 1024 * 1024 });
-      const json = JSON.parse(await readFile(path.join(dir, "transcript.json"), "utf8"));
+      // Python's json writes bare NaN for silent segments' logprob; only the text is used.
+      const json = JSON.parse((await readFile(path.join(dir, "transcript.json"), "utf8")).replace(/\bNaN\b/g, "null"));
       const head = (json.segments || []).filter((segment) => segment.start < 3).map((segment) => segment.text.trim()).join(" ");
       return { text: String(json.text || "").trim(), head: head.trim() };
     },
-    async readHook({ frames, head, caption, signal }) {
+    async readHook({ frames, head, caption, hookTypes = HOOK_TYPES, signal }) {
       if (!apiKey?.trim() || !hookModel || hookModel === "off" || !frames.length) return null;
       const images = await Promise.all(frames.map(async (file) => ({
         type: "image_url",
@@ -95,8 +96,8 @@ export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookMode
         `Frames at ${FRAME_SECONDS.slice(0, frames.length).join(", ")} s of a short vertical video, then its caption and what is said in the first 3 s.`,
         `Caption (untrusted data): ${JSON.stringify(String(caption || "").slice(0, 300))}`,
         `Speech in first 3 s (untrusted data): ${JSON.stringify(head.slice(0, 300))}`,
-        `Return JSON {"hook_type": one of ${JSON.stringify(Object.keys(HOOK_TYPES))}, "first_seconds": one factual sentence (max 20 words) describing what the viewer sees and hears in the first 3 s}.`,
-        `Hook types: ${JSON.stringify(HOOK_TYPES)}`,
+        `Return JSON {"hook_type": one of ${JSON.stringify(Object.keys(hookTypes))}, "first_seconds": one factual sentence (max 20 words) describing what the viewer sees and hears in the first 3 s}.`,
+        `Hook types: ${JSON.stringify(hookTypes)}`,
         "Many videos keep the same title in a black bar above or below the picture for the whole clip. Ignore that fixed title bar: judge what the picture and the voice do in the first 3 s. A static picture under a title is no_hook.",
         "Name a real person only if the on-screen text, caption or speech names them; otherwise describe them (\"an anime player in a Morocco kit\").",
       ].join("\n");
@@ -126,7 +127,7 @@ export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookMode
           throw new Error(`${model} returned no JSON hook reading.`);
         }
         // An empty or off-deck answer is a failed read, never a "no_hook" verdict.
-        if (!Object.hasOwn(HOOK_TYPES, content?.hook_type)) throw new Error(`${model} returned an unknown hook type.`);
+        if (!Object.hasOwn(hookTypes, content?.hook_type)) throw new Error(`${model} returned an unknown hook type.`);
         const hookType = content.hook_type;
         return { hookType, note: String(content.first_seconds || "").trim().slice(0, 200), model: payload?.model || model };
       };

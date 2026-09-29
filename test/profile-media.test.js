@@ -106,3 +106,22 @@ test("a failed rehook keeps the previous hook reading", async () => {
   assert.equal(result.processed, 0);
   assert.equal(repo.media("football-anime").get(url(1)).hook_type, "scoreline");
 });
+
+test("readHook uses a niche's own hook types and loadDeck requires no_hook in them", async () => {
+  const frame = new URL("./fixtures/profile/tiktok-author.json", import.meta.url).pathname;
+  const reply = (hook_type) => async () => Response.json({ choices: [{ message: { content: JSON.stringify({ hook_type, first_seconds: "A face." }) } }] });
+  const hookTypes = { uncanny_face: "An impossible-looking person", no_hook: "Nothing" };
+  assert.equal((await createLocalMedia({ runJson: null, apiKey: "k", root: "/tmp", fetchImpl: reply("uncanny_face") }).readHook({ frames: [frame], head: "", hookTypes })).hookType, "uncanny_face");
+  await assert.rejects(createLocalMedia({ runJson: null, apiKey: "k", root: "/tmp", fetchImpl: reply("scoreline") }).readHook({ frames: [frame], head: "", hookTypes }), /unknown hook type/);
+  const { mkdtemp, writeFile } = await import("node:fs/promises");
+  const { loadDeck } = await import("../src/profile/adapters/jev-classifier.js");
+  const dir = await mkdtemp(`${(await import("node:os")).tmpdir()}/deck-`);
+  const base = { themes: { other: "x" }, formats: { other: "x" } };
+  await writeFile(`${dir}/a.json`, JSON.stringify({ ...base, hooks: { uncanny_face: "y" } }));
+  await assert.rejects(loadDeck("a", new URL(`file://${dir}/`)), /must include "no_hook"/);
+  await writeFile(`${dir}/b.json`, JSON.stringify({ ...base, hooks: hookTypes }));
+  const deck = await loadDeck("b", new URL(`file://${dir}/`));
+  assert.deepEqual(deck.hooks, hookTypes);
+  await writeFile(`${dir}/c.json`, JSON.stringify(base));
+  assert.equal((await loadDeck("c", new URL(`file://${dir}/`))).version, deck.version, "hook edits must not re-classify");
+});

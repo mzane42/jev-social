@@ -1,0 +1,45 @@
+{
+  "themes": {
+    "sign_ranking": "Ranks or singles out zodiac signs (the sign that never..., the most loyal, the smartest)",
+    "love_compatibility": "Couples, compatibility, exes, cheating or who suits whom",
+    "sign_portrait": "Personality portrait of one sign or a birth date",
+    "forecast": "Horoscope or prediction for a period (week, month, year, event)",
+    "quiz_game": "Quiz or game asking viewers to guess, choose or comment their sign",
+    "other": "Anything else or not enough information"
+  },
+  "formats": {
+    "presenter_talk": "A presenter (real or AI) speaks to camera",
+    "voiceover_montage": "Voice-over on images, symbols or stock footage without a visible presenter",
+    "text_list": "On-screen text or list carries the content, little or no voice",
+    "other": "Anything else or not enough information"
+  },
+  "keywords": [
+    "astrologie",
+    "horoscope",
+    "signe astrologique",
+    "astro ia",
+    "zodiac ai",
+    "les signes quand",
+    "zodiac signs as",
+    "signes astrologiques sketch",
+    "if zodiac signs were",
+    "voyante",
+    "mamie voyance",
+    "tarot mamie",
+    "voyante ia",
+    "podcast astrologie",
+    "astrologue débat",
+    "astro podcast"
+  ],
+  "seeds": [
+    "https://www.tiktok.com/@astroconfidences"
+  ],
+  "hooks": {
+    "sign_callout": "Names one or more signs in the first seconds so viewers of that sign feel targeted",
+    "provocative_claim": "Opens with a bold or negative claim about a sign (never, worst, toxic)",
+    "presenter_eye_contact": "A presenter looks into the camera and addresses the viewer in the first seconds",
+    "quiz_question": "Opens with a question or challenge asking viewers to guess or answer",
+    "birthdate_prompt": "Asks for or shows a birth date, month or sign to comment",
+    "no_hook": "Static title, logo or slow build with no clear hook"
+  }
+}

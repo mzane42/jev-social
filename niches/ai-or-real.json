@@ -1,0 +1,38 @@
+{
+  "themes": {
+    "impossible_human": "A recurring AI person presented as real, whose striking or odd look makes viewers ask if he or she exists",
+    "machine_awakening": "An AI, robot or android that seems to become conscious, unsettling or dangerous",
+    "character_crossover": "Recurring AI characters meeting, challenging or referencing each other across accounts",
+    "lifestyle_flex": "Everyday life, style, sport, travel or food shown as a real person's routine",
+    "other": "Anything else or not enough information"
+  },
+  "formats": {
+    "docufiction_log": "Fake documentary or lab log with a narrator, progress reports and staged failures",
+    "street_candid": "Short candid or street clip, phone-camera look, one-line caption or catchphrase",
+    "selfie_talk": "Character speaking to camera, vlog or selfie style",
+    "teaser_reveal": "Teaser, trailer or behind-the-scenes that admits or hints it is AI or CGI",
+    "other": "Anything else or not enough information"
+  },
+  "keywords": [
+    "ai or real",
+    "is this ai",
+    "ai influencer",
+    "cgi docufiction",
+    "ai human",
+    "realistic ai video"
+  ],
+  "seeds": [
+    "https://www.tiktok.com/@galika.project",
+    "https://www.tiktok.com/@jean_philanthrope",
+    "https://www.instagram.com/edouard.le.batard/"
+  ],
+  "hooks": {
+    "uncanny_face": "An impossible-looking person fills the frame from the first second (striking hair, face or outfit) with no text",
+    "ai_in_real_place": "An AI person or object in a recognisable real place (street, cafe, landmark) shot like a phone video",
+    "lab_log_voiceover": "A robot, android or device on a desk while a narrator speaks like a work log or lab recording",
+    "creepy_glitch": "Something unsettling in the first seconds: eyes, smile, voice or movement that feels wrong",
+    "explicit_is_it_real": "Text, caption or speech openly asks or teases whether it is real or AI",
+    "direct_address": "The character speaks straight to the camera in the first seconds",
+    "no_hook": "Static title, logo, black screen or slow build with no clear hook"
+  }
+}
