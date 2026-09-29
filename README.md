@@ -33,7 +33,7 @@ npx github:socai-io/jev-social#v0.1.13 onboard
 npx github:socai-io/jev-social#v0.1.13
 ```
 
-With the default OpenRouter provider, onboarding prompts for the OpenRouter key. On macOS and Windows, onboarding can also install the official `socai CLI` when it is missing. On Linux, install a current `socai CLI` from source first, then put it on `PATH` or set `SOCAI_BIN`. The second command opens the loopback-only demo.
+With the default OpenRouter provider, onboarding prompts for the OpenRouter key. On macOS and Windows, onboarding can also install the official `socai CLI` when it is missing. On Linux, install a current `socai CLI` from source first, then put it on `PATH` or set `SOCAI_BIN`. Unattended or non-interactive installation requires the explicit `--install` flag. The second command opens the loopback-only demo.
 
 ![Earlier routing-only demo](https://raw.githubusercontent.com/socai-io/jev-social/main/docs/jev-social.gif)
 
