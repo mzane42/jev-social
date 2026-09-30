@@ -501,6 +501,32 @@ function evidenceKey(item, index) {
   return String(item.shortcode || item.video_id || item.id || item.url || item.web_url || item.share_url || `item-${index}`);
 }
 
+function accessibleEvidenceContext(item, index) {
+  const raw = firstString(item, ["title", "caption", "description", "text", "name"])
+    || authorName(item)
+    || `Result ${index + 1}`;
+  const normalized = String(raw).replace(/\s+/gu, " ").trim();
+  const containsUnsafeLocation = /https?:\/\/|file:\/\/|(?:^|\s)(?:~?[\\/]|[a-z]:[\\/]|\\\\)/iu.test(normalized);
+  return containsUnsafeLocation ? `Result ${index + 1}` : normalized || `Result ${index + 1}`;
+}
+
+function truncateAccessibleText(value, maxLength) {
+  const text = String(value);
+  if (text.length <= maxLength) return text;
+  const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text);
+  let output = "";
+  for (const { segment } of segments) {
+    if (output.length + segment.length > maxLength - 1) break;
+    output += segment;
+  }
+  return `${output}…`;
+}
+
+function accessibleEvidenceAction(action, item, index) {
+  const prefix = `${action} for evidence ${index + 1}: `;
+  return prefix + truncateAccessibleText(accessibleEvidenceContext(item, index), 80 - prefix.length);
+}
+
 function renderCard(item, index) {
   const card = element("article", "card");
   const title = firstString(item, ["title", "caption", "description", "text", "name"]) || `Result ${index + 1}`;
@@ -517,6 +543,7 @@ function renderCard(item, index) {
   const actions = element("div", "card-actions");
   const inspect = element("button", "", "View details");
   inspect.type = "button";
+  inspect.setAttribute("aria-label", accessibleEvidenceAction("View details", item, index));
   inspect.addEventListener("click", () => showDetail(item, title));
   actions.append(inspect);
   const sourceUrl = firstString(item, ["url", "web_url", "share_url", "canonical_url"]);
@@ -525,6 +552,7 @@ function renderCard(item, index) {
     link.href = sourceUrl;
     link.target = "_blank";
     link.rel = "noreferrer";
+    link.setAttribute("aria-label", accessibleEvidenceAction("Open source ↗", item, index));
     actions.append(link);
   }
   body.append(actions);
