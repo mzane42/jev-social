@@ -16,6 +16,14 @@ Jev Social accepts a research goal for Instagram, TikTok, or LinkedIn. In auto m
 
 The choice set contains only operations supported by the installed socai CLI and targets observed in prior results or explicitly supplied by the user. Jev does not generate shell commands or arbitrary browser selectors. Low-confidence, malformed, invented, and previously attempted operations do not execute.
 
+## Decision API landscape
+
+OpenAI introduced the Decisions API at DevDay 2026, expanding typed decisions into a broader API category. Jev Social currently uses TypeSafe Jev through OpenRouter. OpenAI Decisions API support is not yet wired; compatibility will only be claimed after its public request and response contract can be tested end to end.
+
+The provider is only the decision layer. Jev Social rebuilds the allowed browser operations from live state, socai executes the selected operation, and the next decision receives captured evidence or an explicit failure state.
+
+Official OpenAI DevDay recap: https://openai.com/zh-Hans-CN/index/devday-2026-recap/
+
 ## Output
 
 - streamed cards for captured profiles, posts, comments, and media
