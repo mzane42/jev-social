@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { stripMarkup } from "../test-support/text.js";
+
 const indexHtml = await readFile(
   new URL("../public/index.html", import.meta.url),
   "utf8",
@@ -33,7 +35,7 @@ test("textarea#query has an explicit associated label with non-empty text", () =
   const labelText = labelFor(indexHtml, "query");
   assert.ok(labelText !== null, 'expected a <label for="query"> element');
   assert.notEqual(
-    labelText.replace(/<[^>]*>/g, "").trim(),
+    stripMarkup(labelText).trim(),
     "",
     "the label for textarea#query must contain non-empty text",
   );

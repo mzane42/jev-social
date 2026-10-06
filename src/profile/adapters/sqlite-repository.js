@@ -27,6 +27,11 @@ CREATE TABLE IF NOT EXISTS media (
   transcript TEXT, transcript_head TEXT,
   hook_type TEXT, hook_note TEXT, hook_model TEXT,
   error TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS candidates (
+  niche TEXT NOT NULL, account TEXT NOT NULL, score INTEGER NOT NULL,
+  signals TEXT NOT NULL, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
+  PRIMARY KEY (niche, account)
 );`;
 
 export function openDatabase(file) {
@@ -55,6 +60,8 @@ export function createSqliteRepository({ db, files, now = () => new Date() }) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const getMedia = db.prepare("SELECT * FROM media WHERE niche = ?");
   const dropClass = db.prepare("DELETE FROM classifications WHERE url = ? AND niche = ?");
+  const putCandidate = db.prepare(`INSERT INTO candidates (niche, account, score, signals, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT (niche, account) DO UPDATE SET score = excluded.score, signals = excluded.signals, last_seen = excluded.last_seen`);
 
   const put = ({ snapshot, metrics, insights, insightNotice = null }) => {
     const account = `${snapshot.platform}@${snapshot.handle}`;
@@ -94,6 +101,10 @@ export function createSqliteRepository({ db, files, now = () => new Date() }) {
       putMedia.run(m.url, niche, m.videoPath ?? null, JSON.stringify(m.frames ?? []), m.transcript ?? null, m.head ?? null,
         m.hookType ?? null, m.note ?? null, m.model ?? null, m.error ?? null, now().toISOString());
       if (m.transcript && !keepClassification) dropClass.run(m.url, niche);
+    },
+    saveCandidates(niche, candidates) {
+      const at = now().toISOString();
+      for (const c of candidates) putCandidate.run(niche, c.account, c.score, JSON.stringify(c.signals), at, at);
     },
     saveClassifications(deckVersion, niche, byUrl) {
       const at = now().toISOString();

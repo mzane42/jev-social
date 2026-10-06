@@ -1,0 +1,11 @@
+{
+  "accounts": [],
+  "count": 0,
+  "ok": false,
+  "open": {
+    "ok": false,
+    "status": "search_control_not_found"
+  },
+  "query": "anime football",
+  "reason": "search_control_not_found"
+}

@@ -39,3 +39,8 @@ test("extractSearchQuery preserves an already literal search term", () => {
   assert.equal(extractSearchQuery("instagram marketing tips"), "instagram marketing tips");
   assert.equal(extractSearchQuery("mr beast"), "mr beast");
 });
+
+test("extractSearchQuery trims long quote runs without changing the topic", () => {
+  const quotes = "\"".repeat(10_000);
+  assert.equal(extractSearchQuery(`search Instagram for ${quotes}AI creators${quotes}`), "AI creators");
+});

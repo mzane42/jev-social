@@ -35,12 +35,12 @@
         "codeRepository": "https://github.com/socai-io/jev-social",
         "downloadUrl": "https://github.com/socai-io/jev-social/releases/latest",
         "image": "https://socai-io.github.io/jev-social/assets/social-preview.jpg",
-        "softwareVersion": "0.1.10",
+        "softwareVersion": "0.1.13",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS, Windows, Linux",
         "isAccessibleForFree": true,
         "license": "https://opensource.org/license/mit",
-        "dateModified": "2026-09-25",
+        "dateModified": "2026-09-28",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -82,6 +82,7 @@
         </ul>
         <div class="hero-actions">
           <a class="button button-dark" href="#run">Run it locally ↓</a>
+          <a class="button button-light" href="./recorded-run/">Watch a recorded run ▶</a>
           <a class="button button-light" href="https://github.com/socai-io/jev-social" rel="noreferrer">View source ↗</a>
         </div>
         <p class="trust-line">
@@ -90,15 +91,27 @@
         </p>
       </section>
 
+      <section class="category reveal" aria-labelledby="category-heading">
+        <div>
+          <div class="section-label">DECISION APIS JUST WENT MAINSTREAM</div>
+          <h2 id="category-heading">The API decides.<br>The browser still has to prove it.</h2>
+        </div>
+        <div class="category-card">
+          <p><a href="https://openai.com/zh-Hans-CN/index/devday-2026-recap/" rel="noreferrer">OpenAI introduced the Decisions API at DevDay 2026 ↗</a>, widening the category beyond Jev.</p>
+          <p><strong>Jev Social currently uses TypeSafe Jev through OpenRouter.</strong> OpenAI Decisions API support is not yet wired; compatibility will only be claimed after its public contract can be tested end to end.</p>
+          <p class="category-loop"><span>typed decision</span><i aria-hidden="true">→</i><span>socai action</span><i aria-hidden="true">→</i><span>browser evidence</span></p>
+        </div>
+      </section>
+
       <section class="demo reveal" aria-labelledby="demo-heading">
         <div class="section-label">THE DEMO</div>
         <div class="section-heading">
           <h2 id="demo-heading">One goal. Visible evidence.</h2>
           <p>The recording is at 1× speed. Current builds also show every operation Jev chooses.</p>
         </div>
-        <a class="demo-frame" href="https://github.com/socai-io/jev-social#run-it" aria-label="Open the Jev Social setup guide">
+        <a class="demo-frame" href="./recorded-run/" aria-label="Watch a sanitized recorded Jev Social run">
           <img src="./assets/jev-social.gif" alt="Jev Social local demo routing a goal to socai and streaming captured post cards">
-          <span>Open the local setup guide ↗</span>
+          <span>Replay one audited run ↗</span>
         </a>
       </section>
 
@@ -204,15 +217,17 @@
           <div class="section-label">RUN LOCALLY</div>
           <h2 id="run-heading">Your browser. Your session. Your evidence.</h2>
           <p>The tagged release uses OpenRouter Jev by default and can route decisions through a loopback Kev server without an OpenRouter key. Both paths keep browser execution inside the socai runtime and the user's Chrome session.</p>
+          <p>With the default OpenRouter provider, onboarding prompts for the OpenRouter key. On macOS and Windows, onboarding can also install the official socai CLI when it is missing. On Linux, install a current socai CLI from source first, then put it on PATH or set SOCAI_BIN.</p>
         </div>
         <div class="code-block">
           <div class="code-label">TERMINAL</div>
-          <pre><code><span>npx github:socai-io/jev-social#v0.1.10 onboard</span>
-<span>npx github:socai-io/jev-social#v0.1.10</span></code></pre>
+          <pre><code><span>npx github:socai-io/jev-social#v0.1.13 onboard</span>
+<span>npx github:socai-io/jev-social#v0.1.13</span></code></pre>
         </div>
         <div class="run-actions">
           <a class="button button-pink" href="https://github.com/socai-io/jev-social" rel="noreferrer">Star Jev Social ★</a>
           <a class="text-link" href="./social-research/">Explore social workflows ↗</a>
+          <a class="text-link" href="./privacy/">Privacy and data flow ↗</a>
           <a class="text-link" href="./local-system-one/">Run with local System One ↗</a>
           <a class="text-link" href="https://github.com/socai-io/jev-social#run-it" rel="noreferrer">Install for Codex, OpenCode, or OpenClaw ↗</a>
           <a class="text-link" href="https://skills.sh/socai-io/jev-social/jev-social" rel="noreferrer">Browse the Agent Skill on skills.sh ↗</a>
@@ -242,6 +257,7 @@
       <div>
         <a href="https://typesafe.ai/" rel="noreferrer">TypeSafe</a>
         <a href="./social-research/">Workflows</a>
+        <a href="./privacy/">Privacy</a>
         <a href="https://github.com/socai-io/jev-social" rel="noreferrer">GitHub</a>
         <a href="./llms.txt">llms.txt</a>
       </div>

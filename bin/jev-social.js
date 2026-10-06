@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 
-import readline from "node:readline/promises";
+import { readFileSync } from "node:fs";
 import { stdin, stdout } from "node:process";
+import readline from "node:readline/promises";
 import { runSearch } from "../src/app.js";
 import { getConfigPath, readConfig, resolveApiKey } from "../src/config.js";
 import { resolveDecisionProvider } from "../src/decision-provider.js";
 import { loadLocalEnv } from "../src/env.js";
-import { saveOnboarding } from "../src/onboard.js";
+import { saveOnboarding, resolveSocaiInstallDecision } from "../src/onboard.js";
 import { probeSocai } from "../src/socai.js";
 import { startServer } from "../src/server.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { discover } from "../src/discover.js";
 import { validateNiche, validateRange } from "../src/profile/domain.js";
 import { analyzeMedia, analyzeProfile, classifyReports, rebuildIndexes } from "../src/profile/analyze.js";
 import { createFsRepository, reportsRoot } from "../src/profile/adapters/fs-repository.js";
@@ -24,11 +26,13 @@ const HELP = `jev-social — Jev-directed social research through socai CLI
 
 Usage:
   jev-social                                      Start local preview
+  jev-social --version                            Show installed version
   jev-social onboard [options]                    Optional manual configuration
   jev-social status                               Show local readiness
   jev-social search <query> [options]             Run one search
   jev-social serve [--port 8766] [--no-open]      Start local preview
   jev-social profile <url> --niche <slug>         Analyse a TikTok/Instagram profile; <url> may be a bare @handle
+  jev-social discover --niche <slug>              Find same-niche accounts from niches/<slug>.json keywords and seeds
   jev-social reports rebuild                      Regenerate report index pages
   jev-social reports import [dir...]              Load saved data.json reports into the local database
   jev-social reports classify [--niche <slug>]    Jev-classify saved videos (theme, format, news hook)
@@ -46,10 +50,15 @@ Profile options:
   --deep <0-10>                        Top items read with comments (default: 3)
   Reports go to $JEV_SOCIAL_REPORTS_DIR or ~/.jev-social/reports
 
+Discover options:
+  --per-keyword <1-50>                 Results per keyword and search (default: 8)
+  --hashtags <0-20>                    Seed hashtags reused as keywords (default: 5)
+  --platform <auto|tiktok|instagram>   Search one platform only (default: auto = both)
+
 Configuration (normally auto-loaded from .env):
   --api-key <key>                      OpenRouter API key (prompt is safer)
   --socai-bin <path>                   socai executable override
-  --install                            Install/reinstall official socai CLI
+  --install                            Install/reinstall official socai CLI (required for unattended install)
   --skip-install                       Do not offer CLI installation
   --no-verify                          Save API key without a network check
 
@@ -60,14 +69,25 @@ Local decision provider (environment only):
 `;
 
 try {
-  await loadLocalEnv();
   const [command = "serve", ...rest] = process.argv.slice(2);
   if (["help", "--help", "-h"].includes(command)) {
     console.log(HELP);
+  } else if (["version", "--version", "-v"].includes(command)) {
+    let packageJson;
+    try {
+      packageJson = JSON.parse(
+        readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+      );
+    } catch {
+      throw new Error("Could not read Jev Social version.");
+    }
+    console.log(packageJson.version);
   } else if (command === "serve") {
+    await loadLocalEnv();
     const flags = parseArgs(rest);
     await startServer({ port: flags.port || 8766, open: !flags.noOpen });
   } else if (command === "status") {
+    await loadLocalEnv();
     const config = await readConfig();
     const provider = resolveDecisionProvider();
     console.log(
@@ -84,8 +104,10 @@ try {
       ),
     );
   } else if (command === "onboard") {
+    await loadLocalEnv();
     await onboard(parseArgs(rest));
   } else if (command === "search") {
+    await loadLocalEnv();
     const flags = parseArgs(rest);
     const query = flags._.join(" ").trim();
     const run = await runSearch(
@@ -124,6 +146,27 @@ try {
     });
     for (const note of result.notes) console.error(note);
     console.log(`${result.processed} videos analysed, ${result.classified} re-classified with transcripts`);
+  } else if (command === "discover") {
+    const flags = parseArgs(rest);
+    const deps = await profileDeps();
+    validateNiche(flags.niche);
+    const niche = JSON.parse(await readFile(new URL(`../niches/${flags.niche}.json`, import.meta.url), "utf8").catch(() => "null"));
+    if (!niche) throw new Error(`niches/${flags.niche}.json not found.`);
+    const result = await discover(
+      { collector: deps.collector, runJson: createSocaiRunJson({ config: await readConfig() }) },
+      {
+        slug: flags.niche,
+        niche,
+        perKeyword: Number(flags.perKeyword ?? 8),
+        hashtags: Number(flags.hashtags ?? 5),
+        platforms: flags.platform && flags.platform !== "auto" ? [flags.platform] : undefined,
+        onNote: (note) => console.error(`[discover] ${note}`),
+      },
+    );
+    deps.repository.saveCandidates(flags.niche, result.candidates);
+    console.error(`Queries: ${result.queries.join(", ")}`);
+    for (const c of result.candidates) console.log(`${String(c.score).padStart(3)}  ${c.account.padEnd(40)} ${c.signals.join(", ")}`);
+    console.error(`${result.candidates.length} candidates → ${deps.dbPath}`);
   } else if (command === "reports") {
     if (!["rebuild", "import", "classify"].includes(rest[0])) throw new Error("Usage: jev-social reports rebuild|import|classify");
     const deps = await profileDeps();
@@ -203,9 +246,20 @@ async function onboard(flags) {
 
   const proposed = { ...current, ...(flags.socaiBin ? { socaiBin: flags.socaiBin } : {}) };
   const before = await probeSocai(proposed);
-  let installCli = Boolean(flags.install);
-  if (!before.installed && !flags.skipInstall && !flags.install) {
-    installCli = await promptYesNo("socai CLI was not found. Install the official release now?", true);
+  let installCli = resolveSocaiInstallDecision({
+    installed: before.installed,
+    install: flags.install,
+    skipInstall: flags.skipInstall,
+    isTTY: stdin.isTTY,
+  });
+  if (!before.installed && !flags.skipInstall && !flags.install && stdin.isTTY) {
+    const userChoice = await promptYesNo("socai CLI was not found. Install the official release now?", true);
+    installCli = resolveSocaiInstallDecision({
+      installed: before.installed,
+      install: userChoice,
+      skipInstall: !userChoice,
+      isTTY: stdin.isTTY,
+    });
   }
 
   console.log("Checking setup…");
@@ -250,6 +304,8 @@ function parseArgs(args) {
     ["--deep", "deep"],
     ["--top", "top"],
     ["--flops", "flops"],
+    ["--per-keyword", "perKeyword"],
+    ["--hashtags", "hashtags"],
   ]);
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
@@ -270,7 +326,7 @@ function parseArgs(args) {
 }
 
 async function promptYesNo(question, defaultYes) {
-  if (!stdin.isTTY) return defaultYes;
+  if (!stdin.isTTY) return false;
   const rl = readline.createInterface({ input: stdin, output: stdout });
   try {
     const answer = (await rl.question(`${question} ${defaultYes ? "[Y/n]" : "[y/N]"} `)).trim().toLowerCase();

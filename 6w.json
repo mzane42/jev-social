@@ -20,7 +20,7 @@
   "where": "Runs as a loopback Node.js application and CLI on the user's machine.",
   "when": "Use it for bounded, read-only social research where posts, comments, profiles, media, and source links must remain inspectable.",
   "why": "Separates model judgment from code-owned validation and browser execution while preserving partial evidence instead of inventing success.",
-  "with": "Requires Node.js 20+, an OpenRouter key with Jev access, and a compatible socai CLI connected to the user's Chrome.",
+  "with": "Requires Node.js 22+, an OpenRouter key with Jev access, and a compatible socai CLI connected to the user's Chrome.",
   "github_url": "https://github.com/socai-io/jev-social",
   "docs_url": "https://github.com/socai-io/jev-social#readme",
   "watch": "MIT-licensed and maintained by socai-io. Sends decision context to OpenRouter and uses local Chrome and socai with the user's existing platform sessions. Live sites may rate-limit, challenge, or return partial results."

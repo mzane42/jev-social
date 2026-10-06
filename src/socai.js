@@ -490,7 +490,6 @@ function isPathLike(val) {
     /^~[/\\]/.test(decoded) ||
     /^\.{1,2}[/\\]/.test(decoded) ||
     /^[/\\](?![/\\])[^/?#\\]+(?:[/\\][^/?#\\]+)*$/.test(decoded) ||
-    /^\/(?!\/)[^/?#]+(?:[/\\][^/?#]+)*$/.test(decoded) ||
     /^\/(?:Users|home|root|tmp|var|opt|usr|etc|Volumes|private|mnt|media|srv|dev|proc|sys)\b/i.test(decoded) ||
     /^(?:\/[a-zA-Z0-9._~-]+){2,}/.test(decoded) ||
     /^[/\\]{2}/.test(decoded) ||
