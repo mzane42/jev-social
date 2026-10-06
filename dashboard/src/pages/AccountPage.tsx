@@ -306,22 +306,55 @@ function ViewsSection({ rows, median }: { rows: ItemRow[]; median: number | null
 
 function HookLab({ rows, platform }: { rows: ItemRow[]; platform: string }) {
   const byViews = rows.filter((r) => isNum(r.views)).sort((a, b) => (b.views as number) - (a.views as number))
-  const hits = byViews.filter((r) => r.tier === 'hit').slice(0, 3)
-  const flops = byViews.filter((r) => r.tier === 'flop').slice(-2).reverse()
-  const cards: { row: ItemRow | null; kind: 'hit' | 'flop'; note: (typeof accountExtrasMock.hookNotes)[number] }[] = [
+  const analysed = byViews.filter((r) => r.media?.hookType)
+  const real = analysed.length > 0
+  // Real: the analysed videos (top + flops chosen by `jev-social media`), best 3 and weakest 2.
+  const hits = (real ? analysed : byViews.filter((r) => r.tier === 'hit')).slice(0, 3)
+  const flops = (real ? analysed.filter((r) => !hits.includes(r)) : byViews.filter((r) => r.tier === 'flop')).slice(-2).reverse()
+  const cards: { row: ItemRow | null; kind: 'hit' | 'flop'; note: { hook: string; firstSeconds: string } }[] = [
     ...[0, 1, 2].map((i) => ({ row: hits[i] ?? null, kind: 'hit' as const, note: accountExtrasMock.hookNotes[i] })),
     ...[0, 1].map((i) => ({ row: flops[i] ?? null, kind: 'flop' as const, note: accountExtrasMock.hookNotes[3 + i] })),
-  ]
+  ].map((c) =>
+    c.row?.media?.hookType ? { ...c, note: { hook: jevLabel(c.row.media.hookType), firstSeconds: c.row.media.hookNote ?? '' } } : c,
+  )
   const platformName = platform === 'instagram' ? 'Instagram' : platform === 'tiktok' ? 'TikTok' : 'platform'
   return (
     <section className="space-y-4">
-      <SectionTitle title="Hook lab" hint="Top 3 hits and the 2 weakest flops. Videos are real; hook notes are placeholders." right={<MockBadge label="mock hooks" />} />
+      <SectionTitle
+        title="Hook lab"
+        hint={
+          real
+            ? 'Frames at 0 / 1 / 2 s, local transcript of the first 3 s, hook read by a vision model.'
+            : 'Top 3 hits and the 2 weakest flops. Videos are real; hook notes are placeholders. Run `jev-social media <niche>`.'
+        }
+        right={real ? null : <MockBadge label="mock hooks" />}
+      />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {cards.map(({ row, kind, note }, i) => (
           <Panel as="article" key={`${kind}-${i}`} className="flex flex-col">
-            <div className="relative grid aspect-[16/6] place-items-center sm:aspect-[16/9] border-b border-line bg-surface-2">
-              <Clapperboard className="size-6 text-dim/60" aria-hidden />
-              <span className="absolute bottom-2 left-2 text-[10px] uppercase tracking-wider text-dim">frame placeholder</span>
+            <div className="relative border-b border-line bg-surface-2">
+              {row?.media?.frames ? (
+                <div className="grid grid-cols-3 gap-px">
+                  {Array.from({ length: Math.min(3, row.media.frames) }, (_, n) => (
+                    <figure key={n} className="relative">
+                      <img
+                        src={`/api/media/frame?url=${encodeURIComponent(row.url)}&n=${n}`}
+                        alt={`Frame at ${n} s`}
+                        loading="lazy"
+                        className="aspect-[9/16] w-full object-cover"
+                      />
+                      <figcaption className="num absolute bottom-1 left-1 rounded bg-bg/70 px-1 text-[10px] text-fg">{n}.0s</figcaption>
+                    </figure>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid aspect-[16/6] place-items-center sm:aspect-[16/9]">
+                  <Clapperboard className="size-6 text-dim/60" aria-hidden />
+                  <span className="absolute bottom-2 left-2 text-[10px] uppercase tracking-wider text-dim">
+                    {row?.media?.error ? `media: ${row.media.error}` : 'frame placeholder'}
+                  </span>
+                </div>
+              )}
               <span
                 className={cn(
                   'absolute top-2 left-2 rounded-full px-2 py-0.5 text-[11px] font-medium',
@@ -343,9 +376,10 @@ function HookLab({ rows, platform }: { rows: ItemRow[]; platform: string }) {
               ) : (
                 <p className="text-sm text-dim">No {kind === 'hit' ? 'hit' : 'flop'} in this capture.</p>
               )}
-              <div className="mt-auto rounded-lg border border-dashed border-line p-2.5">
-                <p className="text-xs font-medium text-fg">{note.hook}</p>
+              <div className={cn('mt-auto rounded-lg border p-2.5', row?.media?.hookType ? 'border-line' : 'border-dashed border-line')}>
+                <p className="text-xs font-medium text-fg">hook: {note.hook}</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-dim">{note.firstSeconds}</p>
+                {row?.media?.head ? <p className="mt-1 text-xs text-dim italic">“{row.media.head}”</p> : null}
               </div>
               {row ? (
                 <ExtLink href={row.url} className="text-xs">

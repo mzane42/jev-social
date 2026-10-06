@@ -1,5 +1,6 @@
 import os from 'node:os'
 import path from 'node:path'
+import { readFileSync, realpathSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import tailwindcss from '@tailwindcss/vite'
@@ -27,10 +28,14 @@ interface ReportEntry {
   niche: string
   account: string
   date: string
-  data: { snapshot?: { items?: { url: string; jev?: unknown }[] } }
+  data: { snapshot?: { items?: { url: string; jev?: unknown; media?: unknown }[] } }
 }
 
 type Row = Record<string, string | number | null>
+
+function hasTable(db: DatabaseSync, name: string): boolean {
+  return Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name))
+}
 
 function readReports(): ReportEntry[] {
   let db: DatabaseSync
@@ -57,11 +62,50 @@ function readReports(): ReportEntry[] {
         },
       ]),
     )
+    const media = new Map(
+      // The media table appears on the first `jev-social media` run; older databases lack it.
+      (hasTable(db, 'media') ? (db.prepare('SELECT * FROM media').all() as Row[]) : []).map((m) => [
+        `${m.niche}\n${m.url}`,
+        {
+          hookType: m.hook_type,
+          hookNote: m.hook_note,
+          head: m.transcript_head,
+          frames: (JSON.parse(String(m.frames || '[]')) as string[]).length,
+          error: m.error,
+        },
+      ]),
+    )
     return reports.map((r) => {
       const data = JSON.parse(String(r.data)) as ReportEntry['data']
-      for (const item of data.snapshot?.items ?? []) item.jev = byKey.get(`${r.niche}\n${item.url}`) ?? null
+      for (const item of data.snapshot?.items ?? []) {
+        item.jev = byKey.get(`${r.niche}\n${item.url}`) ?? null
+        item.media = media.get(`${r.niche}\n${item.url}`) ?? null
+      }
       return { niche: String(r.niche), account: String(r.account), date: String(r.date), data }
     })
+  } finally {
+    db.close()
+  }
+}
+
+/** Frame n of a video's media row, only if the stored path resolves under the media root. */
+function readFrame(url: string, n: number): Buffer | null {
+  const root = path.resolve(process.env.JEV_SOCIAL_MEDIA_DIR || path.join(os.homedir(), '.jev-social', 'media'))
+  let db: DatabaseSync
+  try {
+    db = new DatabaseSync(dbPath(), { readOnly: true })
+  } catch {
+    return null
+  }
+  try {
+    const row = hasTable(db, 'media') ? (db.prepare('SELECT frames FROM media WHERE url = ?').get(url) as Row | undefined) : undefined
+    const file = row ? (JSON.parse(String(row.frames || '[]')) as string[])[n] : undefined
+    if (!file) return null
+    const real = realpathSync(file)
+    if (!real.startsWith(realpathSync(root) + path.sep) || !real.endsWith('.jpg')) return null
+    return readFileSync(real)
+  } catch {
+    return null
   } finally {
     db.close()
   }
@@ -92,6 +136,15 @@ function reportsPlugin(): Plugin {
         try {
           if (pathname === '/reports' || pathname === '/reports/') {
             return send(res, 200, readReports())
+          }
+          if (pathname === '/media/frame') {
+            const q = new URLSearchParams((req.url || '').split('?')[1] || '')
+            const n = Number(q.get('n'))
+            const img = Number.isInteger(n) && n >= 0 && n < 10 ? readFrame(q.get('url') || '', n) : null
+            if (!img) return send(res, 404, { error: 'frame not found' })
+            res.setHeader('Content-Type', 'image/jpeg')
+            res.setHeader('Cache-Control', 'private, max-age=3600')
+            return res.end(img)
           }
           const m = pathname.match(/^\/reports\/([^/]+)\/([^/]+)\/latest\/?$/)
           if (m) {

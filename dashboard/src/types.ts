@@ -24,6 +24,18 @@ export interface SnapshotItem {
   detailCaptured: boolean
   /** Latest Jev classification (from the local database), null when not classified. */
   jev?: ItemJev | null
+  /** Downloaded-video analysis (`jev-social media`), null when not analysed. */
+  media?: ItemMedia | null
+}
+
+export interface ItemMedia {
+  hookType: string | null
+  hookNote: string | null
+  /** Transcript of the first 3 s (local mlx_whisper). */
+  head: string | null
+  /** Number of frames served by /api/media/frame (0, 1, 2 s). */
+  frames: number
+  error: string | null
 }
 
 export interface JevAnswer {

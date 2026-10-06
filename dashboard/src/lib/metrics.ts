@@ -138,9 +138,12 @@ export function jevCohort(d: ReportData, rows: ItemRow[], key: JevKey): Cohort |
   const def = JEV_COHORTS.find((c) => c.key === key)!
   const classified = rows.filter((r) => r.jev)
   if (!classified.length) return null
+  // n counts only videos with a view count: TikTok grids stop showing views past a scroll depth,
+  // and counting view-less videos made thin buckets look solid (Premier League "n=18" was n=3).
+  const measured = classified.filter((r) => isNum(r.views))
   const followers = d.snapshot.profile.followers
   const groups = new Map<string, ItemRow[]>()
-  for (const r of classified) groups.set(r.jev![key].value, [...(groups.get(r.jev![key].value) ?? []), r])
+  for (const r of measured) groups.set(r.jev![key].value, [...(groups.get(r.jev![key].value) ?? []), r])
   const buckets: CohortBucket[] = [...groups.entries()]
     .map(([value, r]) => {
       const mv = median(r.map((x) => x.views))
@@ -157,16 +160,16 @@ export function jevCohort(d: ReportData, rows: ItemRow[], key: JevKey): Cohort |
     .sort((a, b) => (b.medianViews ?? -1) - (a.medianViews ?? -1))
   const top = buckets[0]
   const overall = medianViewsOf(d)
-  const lift = isNum(top.medianViews) && isNum(overall) && overall > 0 ? top.medianViews / overall : null
+  const lift = top && isNum(top.medianViews) && isNum(overall) && overall > 0 ? top.medianViews / overall : null
   return {
     kind: def.kind,
     title: def.title,
-    subtitle: def.subtitle,
     mock: false,
     buckets,
     takeaway: isNum(lift)
-      ? `${top.label} leads: ${top.count} video${top.count > 1 ? 's' : ''} at ${lift.toFixed(1)}× the account median.${top.count < 3 ? ' Too few videos to trust.' : ''}`
+      ? `${top.label} leads: ${top.count} video${top.count > 1 ? 's' : ''} at ${lift.toFixed(1)}× the account median.${top.count < 8 ? ' Too few videos to trust.' : ''}`
       : `${classified.length} of ${rows.length} videos classified; no view counts to compare.`,
+    subtitle: `${def.subtitle} · n = videos with a view count (${measured.length} of ${classified.length})`,
   }
 }
 

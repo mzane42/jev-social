@@ -190,6 +190,7 @@ test("the npm tarball has one reviewed file set and no bundled dependencies", ()
     "src/profile/adapters/fs-repository.js",
     "src/profile/adapters/html-renderer.js",
     "src/profile/adapters/jev-classifier.js",
+    "src/profile/adapters/media.js",
     "src/profile/adapters/openrouter-insights.js",
     "src/profile/adapters/socai-collector.js",
     "src/profile/adapters/sqlite-repository.js",
