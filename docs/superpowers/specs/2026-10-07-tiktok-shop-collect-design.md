@@ -20,23 +20,40 @@ Parent plan: `~/.claude/plans/pasted-content-id-d070-roadmap-streamed-moler.md`
   `anchors` for FR product videos is the spike question.
 - No scheduling, lock, rate limit, Claude call or brief generator in the repo.
 
-## Spike S0 (gates everything else)
+## Spike S0 — result (7 Oct 2026, run `20261007_001915_tiktok_get-videos`)
 
-Stock binary, `--debug-snapshot` records DOM bundles to `~/.socai/runs/<run>/snapshots/`.
+Stock 0.6.5, `tiktok get-videos --debug-snapshot` on 4 product videos from
+`tiktok search "#tiktokshopfrance"` plus 1 control, logged-in watch account,
+region FR, desktop web.
 
-1. 3 FR product-tagged videos + 1 control, found via `tiktok search "#tiktokshopfrance"`.
-2. Per video: `socai tiktok get-videos --video <url> --num-comments 0 --debug-snapshot --pretty`.
-3. Grep snapshots for `anchors`, `extraInfo`, `product`, `anchor_type`, `shop`.
-4. One product URL opened the same way; note price, "vendus", rating, shop, or a gate.
+| field | where | present |
+|---|---|---|
+| `isECVideo = 1` | `itemStruct.isECVideo` | 4/4 product videos, absent on control |
+| shop anchor | `itemStruct.anchors[i]` with `type 35`, whose `extra` is a JSON **string** → array of `{type: 33, component_key: "anchor_shop", id, keyword, extra}` | 2/4 |
+| product fields | inner `extra` (JSON string again): `product_id, title, elastic_title, cover_url, img_url[], seller_id, source ("TikTok Shop"), categories[3]{category_id, category_name (FR), level}, skus[]{sku_id}, currency, price (0), market_price (0), detail_url (oec-api), product_status, in_shop` | 2/4 |
+| CapCut anchor | `anchors[]` `type 54` / `type 35` without shop payload | noise, skip |
+| shop card in DOM / a11y | none: desktop web does not render the product card | 0/4 |
 
-Decision: anchors in page JSON → 1a. Absent → DOM read of the shop card in
-`videoDetail()` (lower fidelity). Product page gated → no 1b, trends on views
-and creator counts only.
+Findings:
+- Product identity, title, seller and category come for free from the SSR
+  JSON when the anchor is present. **Price and sold count are not there**
+  (`price = 0`). They need the product page (1b).
+- Two of four product videos (`isECVideo = 1`) had no shop anchor in SSR;
+  the anchor is probably loaded client side. Store `isECVideo` so those
+  videos still count as "sells something", product unknown.
+- `product_id`, `seller_id`, `sku_id` exceed 2^53. `JSON.parse` on the
+  inner string silently rounds them (`…546100068` → `…546100000`). Quote
+  15+ digit integers with a regex before parsing, keep ids as strings.
+- `anchors` is dropped by socai today: the fork patch is one field.
+
+Decision: 1a goes ahead (`anchors` + `isECVideo` kept raw). 1b depends on
+the product page check below.
 
 ## 1a. socai fork patch (branch `feat/tiktok-anchors`)
 
-- `page_scripts.js` `videoDetail()`: `anchors: stateVideo.anchors || []`.
-- `entities.rs` `TikTokVideo`: `pub anchors: Vec<Value>`.
+- `page_scripts.js` `videoDetail()`: `anchors: stateVideo.anchors || []`,
+  `is_ec_video: Number(stateVideo.isECVideo || 0)`.
+- `entities.rs` `TikTokVideo`: `pub anchors: Vec<Value>`, `pub is_ec_video: i64`.
 - Build `cargo build --release -q -p socai-cli`, install as
   `~/.socai/bin/socai.0.6.5-anchors`, point `~/.jev-social/config.json`
   `socaiBin` at it. Official binary untouched. Upstream PR with the field.
