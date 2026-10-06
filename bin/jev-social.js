@@ -120,6 +120,7 @@ try {
     );
     console.log(JSON.stringify(run, null, 2));
   } else if (command === "profile") {
+    await loadLocalEnv();
     const flags = parseArgs(rest);
     const deps = await profileDeps();
     const result = await analyzeProfile(deps, {
