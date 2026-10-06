@@ -61,7 +61,8 @@ export async function startServer({ port = 8766, open = true, env = process.env 
 
 async function handleRequest(request, response, env, mediaRegistry) {
   try {
-    if (!validHost(request.headers.host)) {
+    const access = requestAccess(request, env);
+    if (!access) {
       return sendJson(response, 403, { error: { code: "INVALID_HOST", message: "Invalid Host header." } });
     }
     const url = new URL(request.url, "http://127.0.0.1");
@@ -127,7 +128,8 @@ async function handleRequest(request, response, env, mediaRegistry) {
       });
     }
     if (request.method === "POST" && url.pathname === "/api/onboard") {
-      assertSameOrigin(request);
+      if (access.remote) throw httpError(403, "ONBOARD_LOCAL_ONLY", "Onboarding is only available from the local machine.");
+      assertSameOrigin(request, access);
       const body = await readJson(request);
       validateOnboardBody(body);
       const result = await saveOnboarding({
@@ -142,7 +144,7 @@ async function handleRequest(request, response, env, mediaRegistry) {
       return sendJson(response, 200, result);
     }
     if (request.method === "POST" && url.pathname === "/api/search") {
-      assertSameOrigin(request);
+      assertSameOrigin(request, access);
       const body = await readJson(request);
       validateSearchBody(body);
       const run = await runSearch(
@@ -153,7 +155,7 @@ async function handleRequest(request, response, env, mediaRegistry) {
       return sendJson(response, 200, publicEvidence(run));
     }
     if (request.method === "POST" && url.pathname === "/api/search-stream") {
-      assertSameOrigin(request);
+      assertSameOrigin(request, access);
       const body = await readJson(request);
       validateSearchBody(body);
       return streamSearch(request, response, body, env, mediaRegistry);
@@ -380,9 +382,27 @@ function validHost(host = "") {
   return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
 }
 
-function assertSameOrigin(request) {
+// Remote access is opt-in and only through Tailscale Serve: JEV_SOCIAL_REMOTE_HOSTS lists the
+// exact host:port it serves on, and Serve's identity header must be present. Optional
+// JEV_SOCIAL_REMOTE_USERS narrows it to specific Tailscale logins.
+function requestAccess(request, env) {
+  const host = request.headers.host || "";
+  if (validHost(host)) return { remote: false };
+  if (!csv(env.JEV_SOCIAL_REMOTE_HOSTS).includes(host.toLowerCase())) return null;
+  const login = String(request.headers["tailscale-user-login"] || "").trim().toLowerCase();
+  if (!login) return null;
+  const users = csv(env.JEV_SOCIAL_REMOTE_USERS);
+  if (users.length && !users.includes(login)) return null;
+  return { remote: true, login };
+}
+
+function csv(value = "") {
+  return String(value).split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+}
+
+function assertSameOrigin(request, access) {
   const origin = request.headers.origin;
-  const expected = `http://${request.headers.host}`;
+  const expected = `${access?.remote ? "https" : "http"}://${request.headers.host}`;
   try {
     if (!origin || new URL(origin).origin !== expected) throw new Error("mismatch");
   } catch {

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -268,5 +269,40 @@ test("/api/status never leaks config path when readConfig fails", async () => {
   } finally {
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("remote access requires an allowlisted Tailscale Serve host and identity, and never onboards", async () => {
+  const remoteHost = "jarvis.example.ts.net:8090";
+  const env = {
+    ...process.env,
+    JEV_SOCIAL_HOME: await mkdtemp(path.join(os.tmpdir(), "jev-social-remote-")),
+    JEV_SOCIAL_REMOTE_HOSTS: remoteHost,
+    JEV_SOCIAL_REMOTE_USERS: "friend@example.com",
+  };
+  const { server, url } = await startServer({ port: 0, open: false, env });
+  const { port } = new URL(url);
+  const request = (method, pathname, headers = {}, body) =>
+    new Promise((resolve, reject) => {
+      const req = http.request({ host: "127.0.0.1", port, method, path: pathname, headers }, (res) => {
+        res.resume();
+        res.on("end", () => resolve(res.statusCode));
+      });
+      req.on("error", reject);
+      req.end(body);
+    });
+  const friend = { Host: remoteHost, "Tailscale-User-Login": "friend@example.com" };
+  try {
+    assert.equal(await request("GET", "/api/runs", { Host: "evil.example" }), 403);
+    assert.equal(await request("GET", "/api/runs", { Host: remoteHost }), 403);
+    assert.equal(await request("GET", "/api/runs", { ...friend, "Tailscale-User-Login": "stranger@example.com" }), 403);
+    assert.equal(await request("GET", "/api/runs", friend), 200);
+
+    const json = { ...friend, "Content-Type": "application/json", Origin: `https://${remoteHost}` };
+    assert.equal(await request("POST", "/api/onboard", json, JSON.stringify({ socaiBin: "/bin/sh" })), 403);
+    assert.equal(await request("POST", "/api/search", { ...json, Origin: `http://${remoteHost}` }, "{}"), 403);
+    assert.equal(await request("POST", "/api/search", json, "{}"), 400);
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }
 });
