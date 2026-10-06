@@ -127,7 +127,7 @@ export function availableActions({ platform, query, goal, items, history, comman
   }
   // An explicit user-supplied URL is also a valid starting point.
   for (const raw of goal.match(/https:\/\/[^\s<>"']+/g) || []) {
-    const url = sourceUrl(raw.replace(/[.,;)]+$/, ""), platform);
+    const url = sourceUrl(stripTrailingUrlPunctuation(raw), platform);
     if (url && targetKind(url, platform)) targets.set(url, {});
   }
   for (const [target, item] of targets) {
@@ -151,6 +151,12 @@ export function availableActions({ platform, query, goal, items, history, comman
   add("page_state", "Inspect the current page for login, loading, or access problems");
   if (history.length) actions.push({ id: "finish", kind: "finish", label: "Finish with the captured evidence; report any gaps honestly", platform });
   return actions;
+}
+
+function stripTrailingUrlPunctuation(value) {
+  let end = value.length;
+  while (end > 0 && ".,;)".includes(value[end - 1])) end -= 1;
+  return value.slice(0, end);
 }
 
 export async function chooseAction({ goal, platform, actions, history, items, limit, remainingSteps, ...options }) {

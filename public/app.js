@@ -9,6 +9,7 @@ import {
   nextPreviewCandidate,
   selectSummaryCards,
 } from "./evidence-preview.js";
+import { findEvidenceItems } from "./evidence-items.js";
 import { bindPromptButtons, platformLabel, updatePromptButtons } from "./prompts.js";
 import { parseRunRoute, resultHash } from "./run-route.js";
 import { deriveStatusView } from "./status.js";
@@ -358,7 +359,7 @@ function renderRun(run) {
   $("#action-list").replaceChildren(...(run.actions || []).map((step) => element("li", "", `${step.action.label} · ${step.status}`)));
   $("#action-history").classList.toggle("hidden", !run.actions?.length);
 
-  const items = findItems(run.result);
+  const items = findEvidenceItems(run.result);
   const hasEvidence = items.length > 0;
   elements.evidenceHeading.classList.toggle("hidden", !hasEvidence);
   elements.evidenceTable.classList.toggle("hidden", !hasEvidence);
@@ -500,14 +501,40 @@ function evidenceKey(item, index) {
   return String(item.shortcode || item.video_id || item.id || item.url || item.web_url || item.share_url || `item-${index}`);
 }
 
+function accessibleEvidenceContext(item, index) {
+  const raw = firstString(item, ["title", "caption", "description", "text", "name"])
+    || authorName(item)
+    || `Result ${index + 1}`;
+  const normalized = String(raw).replace(/\s+/gu, " ").trim();
+  const containsUnsafeLocation = /https?:\/\/|file:\/\/|(?:^|\s)(?:~?[\\/]|[a-z]:[\\/]|\\\\)/iu.test(normalized);
+  return containsUnsafeLocation ? `Result ${index + 1}` : normalized || `Result ${index + 1}`;
+}
+
+function truncateAccessibleText(value, maxLength) {
+  const text = String(value);
+  if (text.length <= maxLength) return text;
+  const segments = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text);
+  let output = "";
+  for (const { segment } of segments) {
+    if (output.length + segment.length > maxLength - 1) break;
+    output += segment;
+  }
+  return `${output}…`;
+}
+
+function accessibleEvidenceAction(action, item, index) {
+  const prefix = `${action} for evidence ${index + 1}: `;
+  return prefix + truncateAccessibleText(accessibleEvidenceContext(item, index), 80 - prefix.length);
+}
+
 function renderCard(item, index) {
   const card = element("article", "card");
+  const title = firstString(item, ["title", "caption", "description", "text", "name"]) || `Result ${index + 1}`;
   const frame = element("div", "media-frame");
-  renderMediaPreview(frame, item);
+  renderMediaPreview(frame, item, { title });
   card.append(frame);
 
   const body = element("div", "card-body");
-  const title = firstString(item, ["title", "caption", "description", "text", "name"]) || `Result ${index + 1}`;
   const author = authorName(item);
   body.append(element("h4", "", title));
   if (author) body.append(element("p", "author", author.startsWith("@") ? author : `@${author}`));
@@ -516,6 +543,7 @@ function renderCard(item, index) {
   const actions = element("div", "card-actions");
   const inspect = element("button", "", "View details");
   inspect.type = "button";
+  inspect.setAttribute("aria-label", accessibleEvidenceAction("View details", item, index));
   inspect.addEventListener("click", () => showDetail(item, title));
   actions.append(inspect);
   const sourceUrl = firstString(item, ["url", "web_url", "share_url", "canonical_url"]);
@@ -524,6 +552,7 @@ function renderCard(item, index) {
     link.href = sourceUrl;
     link.target = "_blank";
     link.rel = "noreferrer";
+    link.setAttribute("aria-label", accessibleEvidenceAction("Open source ↗", item, index));
     actions.append(link);
   }
   body.append(actions);
@@ -531,7 +560,7 @@ function renderCard(item, index) {
   return card;
 }
 
-function renderMediaPreview(frame, item, { showBadge = true } = {}) {
+function renderMediaPreview(frame, item, { showBadge = true, title = "captured evidence" } = {}) {
   const failed = new Set();
   const poster = posterSource(item);
   const tryNext = () => {
@@ -548,6 +577,7 @@ function renderMediaPreview(frame, item, { showBadge = true } = {}) {
       video.controls = true;
       video.preload = "metadata";
       video.playsInline = true;
+      video.setAttribute("aria-label", `Video preview for ${String(title).trim() || "captured evidence"}`);
       video.addEventListener("error", () => {
         failed.add(candidate.src);
         tryNext();
@@ -646,9 +676,11 @@ function renderTable(items) {
 
 function showDetail(item, title) {
   const media = element("div", "detail-media");
-  renderMediaPreview(media, item, { showBadge: false });
+  renderMediaPreview(media, item, { showBadge: false, title });
   const copy = element("div", "detail-copy");
-  copy.append(element("h3", "", title));
+  const heading = element("h3", "", title);
+  heading.id = "detail-title";
+  copy.append(heading);
   const description = firstString(item, ["description", "caption", "text", "title"]);
   if (description) copy.append(element("p", "", description));
   const comments = item.top_comments || item.comments || item.socai_detail?.entity?.top_comments;
@@ -688,19 +720,6 @@ function emptyResultMessage(run) {
   }
   if (run.result?.ok === false) return `socai returned ${run.result.status || run.result.reason || "an unavailable state"}. The complete output is below.`;
   return "socai completed successfully, but returned no displayable records.";
-}
-
-function findItems(value) {
-  if (Array.isArray(value)) return value.filter(isRecord);
-  if (!isRecord(value)) return [];
-  for (const key of ["items", "results", "cards", "videos", "posts", "notes", "data"]) {
-    if (Array.isArray(value[key])) return value[key].filter(isRecord).map((item) => isRecord(item.entity) ? { ...item, ...item.entity } : item);
-    if (isRecord(value[key])) {
-      const nested = findItems(value[key]);
-      if (nested.length) return nested;
-    }
-  }
-  return [];
 }
 
 async function streamApi(url, body, onEvent, signal) {

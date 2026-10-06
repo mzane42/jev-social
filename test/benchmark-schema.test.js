@@ -31,7 +31,7 @@ test("accepts and normalizes the documented synthetic row", () => {
 test("schema v2 requires immutable Jev Social runtime metadata while v1 stays readable", () => {
   const current = clone();
   const normalized = validateBenchmarkRow(current);
-  assert.equal(normalized.jev_social_version, "0.1.10");
+  assert.equal(normalized.jev_social_version, "0.1.13");
   assert.equal(normalized.jev_social_commit, current.jev_social_commit);
 
   for (const field of ["jev_social_version", "jev_social_commit"]) {

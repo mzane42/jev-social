@@ -10,7 +10,8 @@ These instructions apply to the entire repository.
 
 ## Setup
 
-Use Node.js 20, matching `.nvmrc`, `package.json`, and CI.
+Use Node.js 24, matching `.nvmrc`. Node.js 22 is the oldest supported runtime,
+and CI covers both supported LTS lines.
 
 ```bash
 nvm use

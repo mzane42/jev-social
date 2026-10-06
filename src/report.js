@@ -241,7 +241,7 @@ export function validateResearchReport(report, items = []) {
   const records = sourceRecords(publicEvidence(items)).slice(0, MAX_REPORT_SOURCES);
   const expectedById = new Map(records.map(({ url }, index) => [`E${index + 1}`, url]));
   const allowed = new Set(expectedById.values());
-  const reportUrls = [...text.matchAll(/https?:\/\/[^\s)\]|>]+/g)].map(([url]) => url.replace(/[.,;]+$/, ""));
+  const reportUrls = [...text.matchAll(/https?:\/\/[^\s)\]|>]+/g)].map(([url]) => stripTrailingUrlPunctuation(url));
   for (const url of reportUrls) {
     if (!allowed.has(url)) errors.push(`Report cites a URL that is not a captured source: ${url}.`);
   }
@@ -501,7 +501,13 @@ function inline(value) {
 }
 
 function table(value, max = 90) {
-  return inline(truncate(String(value || ""), max)).replace(/\|/g, "\\|");
+  return inline(truncate(String(value || ""), max));
+}
+
+function stripTrailingUrlPunctuation(value) {
+  let end = value.length;
+  while (end > 0 && ".,;".includes(value[end - 1])) end -= 1;
+  return value.slice(0, end);
 }
 
 function truncate(value, max) {
