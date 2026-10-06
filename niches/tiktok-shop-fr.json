@@ -1,0 +1,9 @@
+{
+  "shop": {
+    "global": ["tiktokshopfrance", "tiktokmademebuyit"],
+    "tags": ["gadgetcuisine", "beaute", "maison"],
+    "creators": [],
+    "perQuery": 20,
+    "dailyCap": 300
+  }
+}

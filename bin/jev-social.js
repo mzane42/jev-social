@@ -21,6 +21,7 @@ import { createJevClassifier, loadDeck } from "../src/profile/adapters/jev-class
 import { createLocalMedia } from "../src/profile/adapters/media.js";
 import { createOpenRouterInsights } from "../src/profile/adapters/openrouter-insights.js";
 import { createSocaiCollector, createSocaiRunJson } from "../src/profile/adapters/socai-collector.js";
+import { withYtdlpFallback } from "../src/profile/adapters/ytdlp-fallback.js";
 
 const HELP = `jev-social — Jev-directed social research through socai CLI
 
@@ -38,6 +39,8 @@ Usage:
   jev-social reports classify [--niche <slug>]    Jev-classify saved videos (theme, format, news hook)
   jev-social media <niche> [--top 5 --flops 3]    Download top/flop TikTok videos, frames, local transcript, hook
   jev-social media <niche> --rehook               Re-read hooks from saved frames (no download)
+  jev-social radar [--max 40] [--no-jev]          Story radar: RSS news, cast match, Jev scoring
+  jev-social shop collect --niche <slug>          TikTok Shop watch [--dry-run]: searches, product anchors, day file
 
 Search options:
   --platform <auto|instagram|tiktok|linkedin>  Platform hint (default: auto)
@@ -167,6 +170,68 @@ try {
     console.error(`Queries: ${result.queries.join(", ")}`);
     for (const c of result.candidates) console.log(`${String(c.score).padStart(3)}  ${c.account.padEnd(40)} ${c.signals.join(", ")}`);
     console.error(`${result.candidates.length} candidates → ${deps.dbPath}`);
+  } else if (command === "radar") {
+    const flags = parseArgs(rest);
+    const niche = validateNiche(flags.niche ?? "football-anime");
+    const deck = { niche, ...JSON.parse(await readFile(new URL(`../niches/${niche}.json`, import.meta.url), "utf8")) };
+    const { databasePath, openDatabase } = await import("../src/profile/adapters/sqlite-repository.js");
+    const { runRadar } = await import("../src/radar.js");
+    const apiKey = resolveApiKey(await readConfig());
+    const provider = resolveDecisionProvider();
+    const jev = !flags.noJev && (provider.kind === "local" || Boolean(apiKey));
+    if (!jev && !flags.noJev) console.error("Jev is not configured: items are fetched but not scored.");
+    const result = await runRadar({
+      db: openDatabase(databasePath()), deck, provider, apiKey, jev,
+      max: validateRange("--max", Number(flags.max ?? 40), 0, 200),
+      log: (line) => console.error(line),
+    });
+    console.log(`${result.fresh} fresh items from ${result.feeds} feeds, ${result.castMatched} mention the cast, ${result.scored} scored by Jev`);
+  } else if (command === "shop") {
+    const sub = rest[0];
+    const flags = parseArgs(rest.slice(1));
+    const niche = flags.niche ? validateNiche(flags.niche) : null;
+    const deck = niche ? JSON.parse(await readFile(new URL(`../niches/${niche}.json`, import.meta.url), "utf8")) : null;
+    if (sub !== "collect" || !niche) {
+      console.error("Usage: jev-social shop collect --niche <slug> [--dry-run]");
+      process.exitCode = 1;
+    } else if (!deck.shop) {
+      console.error(`niches/${niche}.json has no "shop" key.`);
+      process.exitCode = 1;
+    } else {
+      const { databasePath, openDatabase } = await import("../src/profile/adapters/sqlite-repository.js");
+      const { createShopStore } = await import("../src/shop-store.js");
+      const { collectShop } = await import("../src/shop.js");
+      const { socaiBusy } = await import("../src/shop-guard.js");
+      const { runProcess } = await import("../src/process.js");
+      const { resolveSocaiBin } = await import("../src/socai.js");
+      const home = process.env.JEV_SOCIAL_HOME || path.join(process.env.HOME, ".jev-social");
+      const runsDir = path.join(process.env.SOCAI_HOME || path.join(process.env.HOME, ".socai"), "runs");
+      const busy = flags.dryRun ? null : await socaiBusy({ runsDir });
+      if (busy) {
+        console.error(`${busy}, skipped.`);
+      } else {
+        const config = await readConfig();
+        const runJson = createSocaiRunJson({ config });
+        const store = createShopStore(openDatabase(databasePath()));
+        let result;
+        try {
+          const cfg = flags.cap ? { ...deck.shop, dailyCap: validateRange("--cap", Number(flags.cap), 1, 1000) } : deck.shop;
+          result = await collectShop({ runJson, store, cfg, niche, outDir: path.join(home, "shop"), dryRun: Boolean(flags.dryRun), log: (line) => console.error(line) });
+        } finally {
+          if (!flags.dryRun) {
+            const bin = await resolveSocaiBin(config, process.env);
+            await runProcess(bin, ["stop"], { timeoutMs: 30_000, env: { ...process.env, SOCAI_TELEMETRY: "0", SOCAI_NO_UPDATE_CHECK: "1" } }).catch(() => {});
+          }
+        }
+        if (flags.dryRun) {
+          for (const q of result.planned) console.log(`${q.mode.padEnd(8)} ${q.query.padEnd(24)} socai ${q.args.join(" ")}`);
+        } else {
+          console.log(`shop ${result.date}: ${result.cards} cards, ${result.detailed} detailed, ${result.products} products, ${result.creators} creators, ${result.discovered.length} new sellers, ${result.errors.length} errors, ${result.skipped} left for tomorrow`);
+          for (const error of result.errors) console.error(`  ! ${error}`);
+          console.log(result.file);
+        }
+      }
+    }
   } else if (command === "reports") {
     if (!["rebuild", "import", "classify"].includes(rest[0])) throw new Error("Usage: jev-social reports rebuild|import|classify");
     const deps = await profileDeps();
@@ -210,7 +275,7 @@ async function profileDeps() {
   const provider = resolveDecisionProvider();
   return {
     version,
-    collector: createSocaiCollector({ runJson: createSocaiRunJson({ config }) }),
+    collector: withYtdlpFallback(createSocaiCollector({ runJson: createSocaiRunJson({ config }) })),
     insights: createOpenRouterInsights({
       apiKey,
       model: String(process.env.OPENROUTER_REPORT_MODEL || "openai/gpt-4o-mini").trim(),
@@ -291,6 +356,8 @@ function parseArgs(args) {
     ["--install", "install"],
     ["--rehook", "rehook"],
     ["--no-verify", "noVerify"],
+    ["--no-jev", "noJev"],
+    ["--dry-run", "dryRun"],
   ]);
   const valueFlags = new Map([
     ["--platform", "platform"],
@@ -306,6 +373,8 @@ function parseArgs(args) {
     ["--flops", "flops"],
     ["--per-keyword", "perKeyword"],
     ["--hashtags", "hashtags"],
+    ["--max", "max"],
+    ["--cap", "cap"],
   ]);
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
