@@ -24,5 +24,46 @@
     "reaction_meme": "Short meme or reaction about a result or a club",
     "character_showcase": "Showcase of one player or club as an anime character, no match arc",
     "other": "Anything else or not enough information"
+  },
+  "radar": {
+    "registry": "/Users/bubblz/cinema/drama/foot-manga-drama/Assets/REGISTRY.md",
+    "extraCast": [
+      "Mourinho",
+      "Flick",
+      "Raphinha",
+      "Adeyemi",
+      "Zidane",
+      "Pedri",
+      "Gavi",
+      "Vinicius",
+      "Bellingham",
+      "Ancelotti",
+      "Enrique"
+    ],
+    "feeds": [
+      {
+        "name": "BBC Sport",
+        "url": "https://feeds.bbci.co.uk/sport/football/rss.xml"
+      },
+      {
+        "name": "Sky Sports",
+        "url": "https://www.skysports.com/rss/12040"
+      },
+      {
+        "name": "ESPN",
+        "url": "https://www.espn.com/espn/rss/soccer/news"
+      }
+    ],
+    "castSearch": "https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en",
+    "castIgnore": [
+      "coach",
+      "referee",
+      "commission",
+      "oracle",
+      "cr",
+      "masters",
+      "medina",
+      "jorge"
+    ]
   }
 }
