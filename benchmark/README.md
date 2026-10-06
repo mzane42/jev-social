@@ -11,7 +11,7 @@ Use a compatible `socai CLI`, an accessible browser profile, and either OpenRout
 ```bash
 npm run --silent benchmark:run -- \
   --task benchmark/tasks/instagram.json \
-  --jev-social-version 0.1.10 \
+  --jev-social-version 0.1.13 \
   --jev-social-commit abcdef0123456789abcdef0123456789abcdef01 \
   --jev-model typesafe/jev-1.13-20260917 \
   --socai-version 0.6.0 \
@@ -31,7 +31,7 @@ Run each exact task/environment group at least ten times. A shell loop is accept
 for run in $(seq 1 10); do
   npm run --silent benchmark:run -- \
     --task benchmark/tasks/instagram.json \
-    --jev-social-version 0.1.10 \
+    --jev-social-version 0.1.13 \
     --jev-social-commit abcdef0123456789abcdef0123456789abcdef01 \
     --jev-model typesafe/jev-1.13-20260917 \
     --socai-version 0.6.0 \

@@ -52,6 +52,17 @@ test("grounded fallback reports separate claims, comments, metrics, inference, l
   assert.deepEqual(validateResearchReport(report, input.items), { ok: true, errors: [] });
 });
 
+test("comparison tables escape pipes and backslashes exactly once", () => {
+  const report = buildGroundedResearchReport({
+    ...input,
+    items: [{ ...input.items[0], caption: String.raw`Path \ note | evidence` }],
+  });
+
+  assert.ok(report.includes(String.raw`Path \\ note \| evidence`));
+  assert.doesNotMatch(report, /Path \\\\\\ note/);
+  assert.deepEqual(validateResearchReport(report, [input.items[0]]), { ok: true, errors: [] });
+});
+
 test("empty and partial evidence produce an honest report without fabricated trends", async () => {
   let called = false;
   const result = await synthesizeResearchReport({

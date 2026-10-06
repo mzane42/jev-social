@@ -42,10 +42,16 @@ export function extractSearchQuery(request) {
 }
 
 function cleanTopic(value) {
-  return value
-    .trim()
-    .replace(/^["'“‘]+|["'”’]+$/g, "")
+  return trimQuoteEdges(value.trim())
     .replace(/\s+please$/i, "")
     .replace(/[。.!?？]+$/g, "")
     .trim();
+}
+
+function trimQuoteEdges(value) {
+  let start = 0;
+  let end = value.length;
+  while (start < end && "\"'“‘".includes(value[start])) start += 1;
+  while (end > start && "\"'”’".includes(value[end - 1])) end -= 1;
+  return value.slice(start, end);
 }

@@ -22,7 +22,7 @@ const task = {
 };
 
 const metadata = {
-  jev_social_version: "0.1.10",
+  jev_social_version: "0.1.13",
   jev_social_commit: "abcdef0123456789abcdef0123456789abcdef01",
   jev_model: "typesafe/jev-1.13-20260917",
   socai_version: "0.6.0",

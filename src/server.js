@@ -21,6 +21,7 @@ const MEDIA_TTL_MS = 60 * 60_000;
 const STATIC_FILES = {
   "/": ["index.html", "text/html; charset=utf-8"],
   "/app.js": ["app.js", "text/javascript; charset=utf-8"],
+  "/evidence-items.js": ["evidence-items.js", "text/javascript; charset=utf-8"],
   "/evidence-preview.js": ["evidence-preview.js", "text/javascript; charset=utf-8"],
   "/run-route.js": ["run-route.js", "text/javascript; charset=utf-8"],
   "/prompts.js": ["prompts.js", "text/javascript; charset=utf-8"],

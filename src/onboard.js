@@ -111,4 +111,14 @@ export async function saveOnboarding({
   };
 }
 
+export function resolveSocaiInstallDecision({ installed, install, skipInstall, isTTY, answer = "" }) {
+  if (install) return true;
+  if (skipInstall) return false;
+  if (installed) return false;
+  if (!isTTY) return false;
+  const trimmed = String(answer).trim().toLowerCase();
+  if (!trimmed) return true;
+  return trimmed === "y" || trimmed === "yes";
+}
+
 export const verifyTypesafeApiKey = verifyOpenRouterApiKey;

@@ -4,7 +4,7 @@ Thanks for helping make local social research faster, more reliable, and easier 
 
 ## Set up
 
-You need Node.js 20+, a current [socai](https://github.com/socai-io/socai) CLI, and an OpenRouter key with access to Jev for live runs.
+You need Node.js 22+, a current [socai](https://github.com/socai-io/socai) CLI, and an OpenRouter key with access to Jev for live runs. Node.js 24 is the default development runtime in `.nvmrc`.
 
 ```bash
 npm ci

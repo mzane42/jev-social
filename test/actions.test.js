@@ -17,6 +17,12 @@ test('actions accept only observed social targets and known CLI operations', () 
   assert.ok(!availableActions({...base,commands:['search']}).some(x=>x.kind==='page_state'));
 });
 
+test('explicit goal URLs trim trailing prose punctuation without changing the target', () => {
+  const actions=availableActions({...base,goal:'Inspect https://www.instagram.com/p/safe/)));.,',items:[]});
+  const read=actions.find((action)=>action.kind==='read_post');
+  assert.equal(read?.target,'https://www.instagram.com/p/safe/');
+});
+
 test('TikTok media downloads require explicit user intent', () => {
   const tiktok={platform:'tiktok',query:'handmade art',goal:'research handmade art on TikTok',items:[{url:'https://www.tiktok.com/@demo/video/222',title:'Handmade art'}],history:[],commands:['search','get-videos','author','page_state'],limit:4};
   assert.ok(!availableActions(tiktok).some(x=>x.downloadMedia));

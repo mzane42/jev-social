@@ -3,6 +3,8 @@ import { execFileSync } from "node:child_process";
 import { access, readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
+import { markdownLinkTargets, stripMarkup } from "../test-support/text.js";
+
 const packageJson = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
@@ -53,6 +55,7 @@ const publicDocs = [
   ["site/index.html", new URL("../site/index.html", import.meta.url)],
   ["site/local-system-one/index.html", new URL("../site/local-system-one/index.html", import.meta.url)],
   ["site/social-research/index.html", new URL("../site/social-research/index.html", import.meta.url)],
+  ["site/privacy/index.html", new URL("../site/privacy/index.html", import.meta.url)],
   ["site/llms.txt", new URL("../site/llms.txt", import.meta.url)],
 ];
 
@@ -60,11 +63,38 @@ function normalizedVisibleText(contents) {
   const attributeValues = [...contents.matchAll(/\b(?:aria-label|content|title)="([^"]*)"/gi)]
     .map((match) => match[1])
     .join(" ");
-  return `${contents.replace(/<[^>]*>/g, " ")} ${attributeValues}`
+  return `${stripMarkup(contents, " ")} ${attributeValues}`
     .replace(/&(?:nbsp|ensp|emsp|thinsp|hyphen|ndash|mdash);/gi, " ")
     .replace(/&#(?:x[a-f\d]+|\d+);/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function htmlSectionById(contents, id) {
+  const sectionTags = /<\/?section\b[^>]*>/gi;
+  const idPattern = new RegExp(`\\bid\\s*=\\s*(["'])${id}\\1`, "i");
+  let start = null;
+  let depth = 0;
+  for (const match of contents.matchAll(sectionTags)) {
+    const closing = /^<\//u.test(match[0]);
+    if (start === null) {
+      if (!closing && idPattern.test(match[0])) {
+        start = match.index;
+        depth = 1;
+      }
+      continue;
+    }
+    depth += closing ? -1 : 1;
+    if (depth === 0) return contents.slice(start, match.index + match[0].length);
+  }
+  return "";
+}
+
+function markdownH2Section(contents, title) {
+  const start = contents.indexOf(`## ${title}`);
+  if (start < 0) return "";
+  const next = contents.indexOf("\n## ", start + title.length + 3);
+  return contents.slice(start, next < 0 ? contents.length : next);
 }
 
 function extractKevCommands(contents) {
@@ -75,8 +105,7 @@ function extractKevCommands(contents) {
     "uv sync --extra serve",
     "uv run --extra serve python -m kev.serve ",
   ];
-  return contents
-    .replace(/<[^>]*>/g, "")
+  return stripMarkup(contents)
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => prefixes.some((prefix) => line.startsWith(prefix)));
@@ -93,8 +122,7 @@ function extractSimpleJevCommands(contents) {
     "python hf-server/hf_server.py ",
     "curl --fail http://127.0.0.1:8000/health",
   ];
-  return contents
-    .replace(/<[^>]*>/g, "")
+  return stripMarkup(contents)
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => prefixes.some((prefix) => line.startsWith(prefix)));
@@ -119,6 +147,25 @@ test("public no-clone commands require consent and pin the current release", asy
     for (const source of githubPackages) {
       assert.equal(source, pinnedSource, `${name} must pin the current release`);
     }
+  }
+});
+
+test("top-level quickstarts state the socai installer platform boundary", async () => {
+  const landing = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
+  const readmeTryQuickstart = markdownH2Section(readmeContents, "Try it");
+  const readmeRunQuickstart = markdownH2Section(readmeContents, "Run it");
+  const landingQuickstart = normalizedVisibleText(htmlSectionById(landing, "run"));
+  const expectedBoundary = [
+    "With the default OpenRouter provider, onboarding prompts for the OpenRouter key.",
+    "On macOS and Windows, onboarding can also install the official socai CLI when it is missing.",
+    "On Linux, install a current socai CLI from source first, then put it on PATH or set SOCAI_BIN.",
+  ].join(" ");
+
+  for (const quickstart of [readmeTryQuickstart, readmeRunQuickstart, landingQuickstart]) {
+    assert.ok(
+      quickstart.replaceAll("`", "").includes(expectedBoundary),
+      "each top-level quickstart must state the exact provider and installer boundary",
+    );
   }
 });
 
@@ -171,7 +218,7 @@ test("OpenClaw setup uses the verified immutable release Skill command", async (
   assert.deepEqual(
     [...new Set(installedRuntimePins)],
     [`github:socai-io/jev-social#${releaseCommit}`],
-    "the installed OpenClaw Skill must pin the v0.1.10 runtime",
+    "the installed OpenClaw Skill must pin the current release runtime",
   );
   const skillSourcePackage = JSON.parse(execFileSync(
     "git",
@@ -233,7 +280,7 @@ test("the Pages landing exposes current structured metadata and recorded evidenc
   assert.equal(software.softwareVersion, packageJson.version);
   assert.equal(software.codeRepository, "https://github.com/socai-io/jev-social");
   assert.equal(software.offers?.price, "0");
-  assert.ok(software.sameAs?.includes("https://ossdrop.com/tool/jev-social"));
+  assert.ok(software.sameAs?.some((url) => url === "https://ossdrop.com/tool/jev-social"));
 
   for (const expected of [
     "docs/example-report.md",
@@ -262,6 +309,11 @@ test("the README keeps Jev Social promotion separate from the socai runtime", as
 
   assert.match(readme, /\bsocai CLI\b/);
   assert.match(readme, /star Jev Social/i);
+  assert.doesNotMatch(
+    readme,
+    /https:\/\/github\.com\/socai-io\/jev-social\/stargazers/i,
+    "public Star calls must lead to the repository page instead of the signed-out 404 route",
+  );
   assert.ok(sourceCheckout, "the README must retain a fenced source-checkout sequence");
   assert.deepEqual(
     sourceCheckout[1].split(/\r?\n/),
@@ -274,12 +326,9 @@ test("the README keeps Jev Social promotion separate from the socai runtime", as
     ],
   );
   assert.match(readme, /On Linux,[^.]+(?:PATH|SOCAI_BIN)[^.]+onboarding\./);
-  assert.ok(readme.includes(
-    '[good first issues](https://github.com/socai-io/jev-social/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22)',
-  ));
-  assert.ok(readme.includes(
-    "[CONTRIBUTING.md](https://github.com/socai-io/jev-social/blob/main/CONTRIBUTING.md)",
-  ));
+  const readmeTargets = markdownLinkTargets(readme);
+  assert.ok(readmeTargets.some((url) => url === "https://github.com/socai-io/jev-social/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22"));
+  assert.ok(readmeTargets.some((url) => url === "https://github.com/socai-io/jev-social/blob/main/CONTRIBUTING.md"));
   assert.doesNotMatch(
     readme,
     /https?:\/\/(?:www\.)?github\.com\/socai-io\/socai(?:\.git)?(?=$|[\s/?#)"'<])/i,
@@ -288,6 +337,23 @@ test("the README keeps Jev Social promotion separate from the socai runtime", as
   assert.doesNotMatch(readme, /(?:star|visit|try|explore|check out) (?:the )?socai\b/i);
   assert.doesNotMatch(readme, /(?:call|run|use|install|download) (?:the )?socai(?: CLI)? directly/i);
   assert.doesNotMatch(readme, /^socai\s+(?:instagram|tiktok|linkedin)\s+/im);
+});
+
+test("the README distinguishes an ecosystem catalog copy from a related workflow", () => {
+  const ecosystem = markdownH2Section(readmeContents, "Ecosystem");
+
+  assert.ok(ecosystem, "the README must expose the ecosystem catalog copy");
+  const ecosystemTargets = markdownLinkTargets(ecosystem);
+  assert.ok(ecosystemTargets.some((url) => url === "https://github.com/davepoon/buildwithclaude/tree/5864a032c1656350343fa982246ca9ffdd889c34/plugins/all-skills/skills/jev-social"));
+  assert.match(ecosystem, /pins the v0\.1\.10 runtime/i);
+  assert.ok(ecosystemTargets.some((url) => url === "https://github.com/kerpopule/hermes-jev-skills/blob/650090df0737d42806c90f6cecfea731ef753abb/skills/jev-social-research/SKILL.md"));
+  assert.match(ecosystem, /separate bounded social-research workflow/i);
+  assert.match(ecosystem, /not the Jev Social runtime/i);
+  assert.ok(ecosystemTargets.some((url) => url === "https://github.com/sickn33/agentic-awesome-skills/blob/463b781eb48c8b3a48869090a2dbd56eeb41e7c3/skills/jev-social/SKILL.md"));
+  assert.match(ecosystem, /marks the workflow `critical` risk/i);
+  assert.match(ecosystem, /explicit approval before the first remote package fetch/i);
+  assert.match(ecosystem, /not a security endorsement/i);
+  assert.doesNotMatch(ecosystem, /\b(?:accepted|official partner|endorsed by|partnership)\b/i);
 });
 
 test("the local UI keeps project links scoped to Jev Social", async () => {
@@ -346,6 +412,7 @@ test("the social research guide is shipped with exact platform and safety bounda
   );
   assert.ok(structuredData, "the social research guide must include JSON-LD");
   const graph = JSON.parse(structuredData[1])["@graph"];
+  const visibleGuide = normalizedVisibleText(guide);
   assert.ok(Array.isArray(graph));
   const article = graph.find((entry) => entry["@type"] === "TechArticle");
   const faq = graph.find((entry) => entry["@type"] === "FAQPage");
@@ -409,18 +476,87 @@ test("the social research guide is shipped with exact platform and safety bounda
     "does not post, like, follow, message, purchase, or change settings",
     "partial evidence",
   ]) {
-    assert.match(guide, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+    assert.match(visibleGuide, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
   }
   assert.doesNotMatch(guide, /github\.com\/socai-io\/socai/);
   assert.doesNotMatch(llms, /github\.com\/socai-io\/socai/);
   assertNoAffirmativeOfflineClaim(guide);
   assert.match(sitemap, /https:\/\/socai-io\.github\.io\/jev-social\/social-research\//);
   assert.match(llms, /https:\/\/socai-io\.github\.io\/jev-social\/social-research\//);
-  assert.match(workflow, /mkdir -p _site\/assets\/platforms _site\/local-system-one _site\/social-research/);
+  assert.match(workflow, /mkdir -p _site\/assets\/platforms _site\/local-system-one _site\/social-research _site\/privacy/);
   assert.match(
     workflow,
     /cp site\/social-research\/index\.html _site\/social-research\//,
   );
+});
+
+test("the privacy guide publishes the exact provider and retention boundaries", async () => {
+  const [guide, sitemap, workflow, llms, landing, localGuide, socialGuide, styles] = await Promise.all([
+    readFile(new URL("../site/privacy/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../site/sitemap.xml", import.meta.url), "utf8"),
+    readFile(new URL("../.github/workflows/pages.yml", import.meta.url), "utf8"),
+    readFile(new URL("../site/llms.txt", import.meta.url), "utf8"),
+    readFile(new URL("../site/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../site/local-system-one/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../site/social-research/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../site/styles.css", import.meta.url), "utf8"),
+  ]);
+  const structuredData = guide.match(
+    /<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/,
+  );
+  assert.ok(structuredData, "the privacy guide must include JSON-LD");
+  const graph = JSON.parse(structuredData[1])["@graph"];
+  const visibleGuide = normalizedVisibleText(guide);
+  assert.ok(Array.isArray(graph));
+  const article = graph.find((entry) => entry["@type"] === "TechArticle");
+  const faq = graph.find((entry) => entry["@type"] === "FAQPage");
+  assert.equal(article?.url, "https://socai-io.github.io/jev-social/privacy/");
+  assert.equal(article?.headline, "Jev Social privacy and data flow");
+  assert.equal(article?.about?.["@type"], "SoftwareSourceCode");
+  assert.equal(article?.about?.codeRepository, "https://github.com/socai-io/jev-social");
+  assert.equal(faq?.mainEntity?.length, 4);
+
+  for (const expected of [
+    "Jev Social runs locally, but it is not an offline application",
+    "OpenRouter key to https://openrouter.ai/api/v1/auth/key for validation",
+    "A key entered interactively is saved in config.json",
+    "an existing OPENROUTER_API_KEY is used without writing a second copy",
+    "does not read or copy the browser cookie store directly",
+    "up to 400 characters",
+    "OPENROUTER_REPORT_MODEL=off",
+    "SOCAI_TELEMETRY=0",
+    "OPENROUTER_API_KEY",
+    "TYPESAFE_API_KEY",
+    "SOCAI_API_KEY",
+    "An independently running desktop process has its own process-level setting",
+    "audited socai v0.6.1 release",
+    "socai.io/v1/events",
+    "Axiom",
+    "stable install ID",
+    "full phone number",
+    "does not specify a server-side deletion or retention period",
+    "Provider-side storage and retention are governed by OpenRouter",
+    "local decision server has its own model, log, and retention behavior",
+    "~/.jev-social",
+    "0600",
+    "0700",
+    "No automatic retention or cleanup schedule",
+    "does not post, like, follow, message, purchase, or change settings",
+    "only when the research goal explicitly requests it",
+  ]) {
+    assert.match(visibleGuide, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+  assertNoAffirmativeOfflineClaim(guide);
+  assert.doesNotMatch(guide, /github\.com\/socai-io\/socai(?:\.git)?(?=$|[\s/?#)"'<])/i);
+  assert.doesNotMatch(guide, /https:\/\/(?:www\.)?socai\.io/);
+  assert.match(sitemap, /https:\/\/socai-io\.github\.io\/jev-social\/privacy\//);
+  assert.match(llms, /Privacy and data flow guide: https:\/\/socai-io\.github\.io\/jev-social\/privacy\//);
+  assert.match(workflow, /mkdir -p _site\/assets\/platforms _site\/local-system-one _site\/social-research _site\/privacy/);
+  assert.match(workflow, /cp site\/privacy\/index\.html _site\/privacy\//);
+  assert.match(styles, /\.section-label\s*\{[^}]*color:\s*#605a55;/s);
+  for (const contents of [landing, localGuide, socialGuide]) {
+    assert.match(contents, /href="(?:\.\/|\.\.\/)privacy\/"/);
+  }
 });
 
 test("the local System One guide is shipped and keeps its local boundary honest", async () => {
