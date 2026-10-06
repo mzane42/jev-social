@@ -46,8 +46,16 @@ Findings:
   15+ digit integers with a regex before parsing, keep ids as strings.
 - `anchors` is dropped by socai today: the fork patch is one field.
 
-Decision: 1a goes ahead (`anchors` + `isECVideo` kept raw). 1b depends on
-the product page check below.
+Decision: 1a goes ahead (`anchors` + `isECVideo` kept raw).
+
+Product page check: anonymous fetch of `tiktok.com/view/product/<id>`
+returns a "Security Check" captcha page; socai rejects a product URL in
+`get-videos` before navigating, and `page_state` takes no URL. So the check
+can only run inside the 1b tool itself. 1b is deferred: its first task is
+the tool skeleton that navigates to the product URL in the managed Chrome
+and records a snapshot; price and sold count are added only if that page
+renders them for the logged-in watch account. Until then, trends use views,
+video counts and creator counts.
 
 ## 1a. socai fork patch (branch `feat/tiktok-anchors`)
 
