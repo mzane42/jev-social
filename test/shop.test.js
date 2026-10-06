@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import { collectShop, parseBigJson, planQueries, shopAnchors, videoRow } from "../src/shop.js";
+import { collectShop, localDate, parseBigJson, planQueries, shopAnchors, videoRow } from "../src/shop.js";
 import { createShopStore } from "../src/shop-store.js";
 
 const fixture = async (name) => JSON.parse(await readFile(new URL(`./fixtures/shop/${name}`, import.meta.url), "utf8"));
@@ -119,4 +119,26 @@ test("collectShop aborts on a login gate", async () => {
     collectShop({ runJson: async () => ({ ok: false, login_required: true, cards: [] }), store, cfg, niche: "t", outDir: tmpdir(), now: at, sleep: async () => {} }),
     (error) => error.code === "SHOP_LOGIN_REQUIRED",
   );
+});
+
+test("collectShop reads the JSON socai attaches when it exits 1 on an incomplete batch", async () => {
+  const search = await fixture("search.json");
+  const details = await fixture("get-videos.json");
+  const store = createShopStore(new DatabaseSync(":memory:"));
+  const runJson = async (args) => {
+    if (args[1] === "search") return search;
+    const error = new Error("socai CLI failed: ok=false");
+    error.code = "SOCAI_FAILED";
+    error.details = { exitCode: 1, data: details };
+    throw error;
+  };
+  const outDir = await mkdtemp(path.join(tmpdir(), "shop-"));
+  const result = await collectShop({ runJson, store, cfg: { ...cfg, creators: [] }, niche: "t", outDir, now: at, sleep: async () => {}, random: () => 0 });
+  assert.equal(result.detailed, 3);
+  assert.equal(result.errors.length, 1, "only the video without an entity is an error");
+});
+
+test("day file uses the local calendar date", () => {
+  const d = new Date(2026, 9, 7, 0, 39); // local midnight-ish, whatever the zone
+  assert.equal(localDate(d), "2026-10-07");
 });

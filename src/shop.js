@@ -77,6 +77,8 @@ export function planQueries(cfg) {
   ];
 }
 
+export const localDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
 const gated = (raw) => {
   const observed = raw?.state?.observed_state;
   return Boolean(raw?.login_required || raw?.challenge_required || observed?.login_required || observed?.challenge_required);
@@ -87,8 +89,9 @@ export async function collectShop({ runJson, store, cfg, niche, outDir, now = ()
   const planned = planQueries(cfg);
   if (dryRun) return { date: null, file: null, planned, cards: 0, detailed: 0, partial: 0, products: 0, creators: 0, discovered: [], errors: [], skipped: 0 };
 
-  const at = now().toISOString();
-  const date = at.slice(0, 10);
+  const started = now();
+  const at = started.toISOString();
+  const date = localDate(started); // launchd runs at 07:30 local; the UTC date would still be yesterday before 02:00 CEST
   const errors = [];
   const partial = [];
   const modes = [];
@@ -132,11 +135,15 @@ export async function collectShop({ runJson, store, cfg, niche, outDir, now = ()
     let raw;
     try {
       raw = await runJson(["tiktok", "get-videos", ...batch.flatMap((url) => ["--video", url]), "--num-comments", "8", "--pretty"]);
-      usage.details += 1;
     } catch (error) {
-      errors.push(`get-videos batch ${i / BATCH + 1}: ${error.message}`);
-      continue;
+      // exit code 1 with full JSON = some videos incomplete; the JSON travels in error.details.data (see runSocaiJson)
+      raw = error?.details?.data;
+      if (!Array.isArray(raw?.videos)) {
+        errors.push(`get-videos batch ${i / BATCH + 1}: ${error.message}`);
+        continue;
+      }
     }
+    usage.details += 1;
     if (gated(raw)) throw gate("during video reads");
     for (const item of raw?.videos ?? []) {
       if (!item?.entity?.url) { errors.push(`${item?.locator ?? "?"}: ${item?.error ?? item?.reason ?? "video_read_failed"}`); continue; }
