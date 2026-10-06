@@ -85,11 +85,12 @@ const gate = (where) => new AppError(`TikTok asked to log in or solve a challeng
 
 export async function collectShop({ runJson, store, cfg, niche, outDir, now = () => new Date(), sleep = defaultSleep, random = Math.random, log = () => {}, dryRun = false }) {
   const planned = planQueries(cfg);
-  if (dryRun) return { date: null, file: null, planned, cards: 0, detailed: 0, products: 0, creators: 0, discovered: [], errors: [], skipped: 0 };
+  if (dryRun) return { date: null, file: null, planned, cards: 0, detailed: 0, partial: 0, products: 0, creators: 0, discovered: [], errors: [], skipped: 0 };
 
   const at = now().toISOString();
   const date = at.slice(0, 10);
   const errors = [];
+  const partial = [];
   const modes = [];
   const candidates = new Map(); // url → { mode, query }
   const usage = { searches: 0, details: 0 };
@@ -138,7 +139,9 @@ export async function collectShop({ runJson, store, cfg, niche, outDir, now = ()
     }
     if (gated(raw)) throw gate("during video reads");
     for (const item of raw?.videos ?? []) {
-      if (!item?.ok || !item.entity?.url) { errors.push(`${item?.locator ?? "?"}: ${item?.error ?? item?.reason ?? "video_read_failed"}`); continue; }
+      if (!item?.entity?.url) { errors.push(`${item?.locator ?? "?"}: ${item?.error ?? item?.reason ?? "video_read_failed"}`); continue; }
+      // socai marks a video "incomplete" when a secondary read (often the comments) fails; the entity is still good.
+      if (!item.ok) partial.push(`${item.entity.url}: ${item.reason ?? "incomplete"}${item.missing ? ` (${[].concat(item.missing).join(", ")})` : ""}`);
       const meta = candidates.get(item.entity.url) ?? candidates.get(item.locator) ?? { mode: "unknown", query: "" };
       const row = videoRow(item.entity, meta);
       const tagged = shopAnchors(item.entity);
@@ -156,7 +159,7 @@ export async function collectShop({ runJson, store, cfg, niche, outDir, now = ()
 
   await mkdir(outDir, { recursive: true, mode: 0o700 });
   const file = path.join(outDir, `${date}.json`);
-  const day = { runAt: at, date, niche, modes, videos, products: [...products.values()], creators: [...creators], discovered: [...discovered], errors, usage };
+  const day = { runAt: at, date, niche, modes, videos, products: [...products.values()], creators: [...creators], discovered: [...discovered], partial, errors, usage };
   await writeFile(file, JSON.stringify(day, null, 2), { mode: 0o600 });
-  return { date, file, planned, cards: candidates.size, detailed: videos.length, products: products.size, creators: creators.size, discovered: [...discovered], errors, skipped };
+  return { date, file, planned, cards: candidates.size, detailed: videos.length, partial: partial.length, products: products.size, creators: creators.size, discovered: [...discovered], errors, skipped };
 }

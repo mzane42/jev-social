@@ -74,9 +74,10 @@ test("collectShop searches, details once per URL, links products and writes the 
   assert.ok(detail[0].includes("--num-comments") && !detail[0].includes("--download-media"));
 
   assert.equal(result.cards, 3);
-  assert.equal(result.detailed, 2);
-  assert.equal(result.products, 1);
-  assert.deepEqual(result.discovered, []); // demo_seller is already watched; demo_other sells nothing
+  assert.equal(result.detailed, 3, "incomplete reads (missing comments) still count");
+  assert.equal(result.partial, 1);
+  assert.equal(result.products, 2);
+  assert.deepEqual(result.discovered, ["demo_partial"]); // demo_seller is already watched; demo_other sells nothing
   assert.equal(result.errors.length, 1);
   assert.match(result.errors[0], /7003.*navigation_timeout/);
   assert.equal(store.db.prepare("SELECT product_id FROM shop_videos WHERE url LIKE '%7001'").get().product_id, "1729000000000000001");
@@ -84,10 +85,11 @@ test("collectShop searches, details once per URL, links products and writes the 
 
   const day = JSON.parse(await readFile(result.file, "utf8"));
   assert.equal(day.date, "2026-10-07");
-  assert.equal(day.videos.length, 2);
+  assert.equal(day.videos.length, 3);
+  assert.match(day.partial[0], /7004: video_detail_incomplete \(top_comments\)/);
   assert.equal(day.products[0].productId, "1729000000000000001");
   assert.deepEqual(day.videos[0].topComments, [{ text: "Il est où le lien ?", likes: 12 }]);
-  assert.deepEqual(Object.keys(day).sort(), ["creators", "date", "discovered", "errors", "modes", "niche", "products", "runAt", "usage", "videos"]);
+  assert.deepEqual(Object.keys(day).sort(), ["creators", "date", "discovered", "errors", "modes", "niche", "partial", "products", "runAt", "usage", "videos"]);
 });
 
 test("collectShop skips URLs already detailed today and honours dailyCap", async () => {
