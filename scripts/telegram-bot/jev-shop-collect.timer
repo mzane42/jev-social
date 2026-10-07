@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the TikTok Shop collection every morning
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+RandomizedDelaySec=20min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

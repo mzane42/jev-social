@@ -1,0 +1,17 @@
+[Unit]
+Description=jev-social daily TikTok Shop collection + Telegram summary
+After=network-online.target xvfb@:99.service
+Wants=network-online.target xvfb@:99.service
+# The bot keeps running: shop-guard refuses to start while a socai run is in progress.
+
+[Service]
+Type=oneshot
+User=anis
+WorkingDirectory=/home/anis/www/jev-social
+Environment=HOME=/home/anis
+Environment=DISPLAY=:99
+Environment=JEV_DASHBOARD_URL=https://jarvis.taila9029e.ts.net:8090
+Environment=PATH=/home/anis/.local/bin:/home/anis/.nvm/versions/node/v24.15.0/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash /home/anis/www/jev-social/scripts/telegram-bot/shop-daily.sh tiktok-shop-fr
+TimeoutStartSec=45min
+NoNewPrivileges=true
