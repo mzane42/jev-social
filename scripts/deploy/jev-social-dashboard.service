@@ -1,0 +1,19 @@
+[Unit]
+Description=jev-social analytics dashboard (Vite, 127.0.0.1:8767; tailnet via Tailscale Serve :8090)
+After=network.target
+
+[Service]
+User=anis
+WorkingDirectory=/home/anis/www/jev-social/dashboard
+Environment=HOME=/home/anis
+Environment=PATH=/home/anis/.nvm/versions/node/v24.15.0/bin:/usr/local/bin:/usr/bin:/bin
+# Add a colleague: append their Tailscale login here + group:jev in /opt/stack/tailscale/acl.hujson.
+Environment=JEV_SOCIAL_REMOTE_HOSTS=jarvis.taila9029e.ts.net:8090
+Environment=JEV_SOCIAL_REMOTE_USERS=anismzane@gmail.com,anis@zanely.fr
+ExecStart=/home/anis/.nvm/versions/node/v24.15.0/bin/node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 8767 --strictPort
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

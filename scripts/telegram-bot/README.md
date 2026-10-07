@@ -64,3 +64,20 @@ journalctl -u jev-shop-collect -n 50 --no-pager
 
 The collection needs the socai build with TikTok Shop anchors (fork branch `feat/tiktok-anchors`,
 see `docs/GUIDE-LOCAL.md`) and a TikTok session in the socai Chrome profile of the host.
+
+## Deploy
+
+`scripts/deploy/deploy.sh` is a pull deploy: every 5 minutes `jev-deploy.timer` fetches `origin/main`
+and, once the GitHub `tests` workflow is green on that commit, fast-forwards the checkout, runs
+`npm ci` where a lockfile changed, installs changed systemd units, restarts `jev-bot` and
+`jev-social-dashboard`, and posts the result on Telegram. It waits while a collection runs, never
+touches a dirty tree, and on failure goes back to the previous commit and skips the failed one
+until the next push. No inbound access or CI secret is needed. Install once:
+
+```sh
+sudo install -m 644 scripts/deploy/jev-deploy.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now jev-deploy.timer
+journalctl -u jev-deploy -n 30 --no-pager   # last deploy; state in ~/.local/state/jev-deploy/
+```
+
+The deploy user needs passwordless `sudo` for `install`, `systemctl daemon-reload` and `systemctl restart`.
