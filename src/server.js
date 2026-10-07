@@ -7,13 +7,14 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getPrivateRunMedia, runSearch } from "./app.js";
-import { getConfigPath, readConfig, resolveApiKey } from "./config.js";
+import { getConfigPath, getHomeDir, readConfig, resolveApiKey } from "./config.js";
 import { resolveDecisionProvider } from "./decision-provider.js";
 import { publicEvidence } from "./evidence.js";
 import { errorPayload } from "./errors.js";
 import { loadLocalEnv } from "./env.js";
 import { saveOnboarding } from "./onboard.js";
 import { listRuns, markInterruptedRuns, readRun } from "./runs.js";
+import { readLatestShopDay, renderShopPage } from "./shop-page.js";
 import { probeSocai, unknownSocaiReadiness } from "./socai.js";
 
 const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
@@ -26,6 +27,7 @@ const STATIC_FILES = {
   "/run-route.js": ["run-route.js", "text/javascript; charset=utf-8"],
   "/prompts.js": ["prompts.js", "text/javascript; charset=utf-8"],
   "/status.js": ["status.js", "text/javascript; charset=utf-8"],
+  "/view-focus.js": ["view-focus.js", "text/javascript; charset=utf-8"],
   "/report-stream.js": ["report-stream.js", "text/javascript; charset=utf-8"],
   "/styles.css": ["styles.css", "text/css; charset=utf-8"],
   "/report-download.js": ["report-download.js", "text/javascript; charset=utf-8"],
@@ -88,6 +90,12 @@ async function handleRequest(request, response, env, mediaRegistry) {
           "default-src 'self'; img-src 'self' https: data:; media-src 'self' https: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
       });
       return response.end(content);
+    }
+    if (request.method === "GET" && url.pathname === "/shop") {
+      const html = renderShopPage(await readLatestShopDay(path.join(getHomeDir(env), "shop")));
+      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; img-src https:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" });
+      return response.end(html);
     }
     if (request.method === "GET" && url.pathname === "/api/status") {
       let config;
