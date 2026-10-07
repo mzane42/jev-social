@@ -7,12 +7,15 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const num = (v) => (v == null ? "" : Number(v).toLocaleString("fr-FR"));
 const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>`;
 
-/** Latest `<YYYY-MM-DD>.json` in the shop dir, or null. */
+/** Newest readable `<YYYY-MM-DD>.json` in the shop dir, or null. A truncated or invalid file is skipped. */
 export async function readLatestShopDay(shopDir) {
   let names;
   try { names = await readdir(shopDir); } catch { return null; }
-  const latest = names.filter((n) => /^\d{4}-\d{2}-\d{2}\.json$/.test(n)).sort().at(-1);
-  return latest ? JSON.parse(await readFile(path.join(shopDir, latest), "utf8")) : null;
+  const dated = names.filter((n) => /^\d{4}-\d{2}-\d{2}\.json$/.test(n)).sort().reverse();
+  for (const name of dated) {
+    try { return JSON.parse(await readFile(path.join(shopDir, name), "utf8")); } catch { /* skip, try the previous day */ }
+  }
+  return null;
 }
 
 export function renderShopPage(day) {

@@ -35,6 +35,8 @@ test("GET /shop serves the latest day file, or a hint when none exists", async (
     const html = await response.text();
     assert.match(html, /Neuf/);
     assert.ok(!html.includes("Vieux"));
+    await writeFile(path.join(home, "shop", "2026-10-08.json"), "{ truncated");
+    assert.match(await (await fetch(`${url}/shop`)).text(), /Neuf/, "skips the unreadable newest file");
     assert.equal(await readLatestShopDay(path.join(home, "nope")), null);
   } finally {
     server.close();
