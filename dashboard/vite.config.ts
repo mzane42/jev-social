@@ -167,7 +167,37 @@ function reportsPlugin(): Plugin {
   }
 }
 
+function csv(value = ''): string[] {
+  return value.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean)
+}
+
+const REMOTE_HOSTS = csv(process.env.JEV_SOCIAL_REMOTE_HOSTS)
+const REMOTE_USERS = csv(process.env.JEV_SOCIAL_REMOTE_USERS)
+
+/**
+ * Opt-in tailnet access through Tailscale Serve, mirroring src/server.js: a request on a
+ * non-local host must use an exact JEV_SOCIAL_REMOTE_HOSTS host:port and carry Serve's
+ * Tailscale-User-Login, optionally narrowed by JEV_SOCIAL_REMOTE_USERS. Registered before
+ * Vite's own middlewares, so it also guards source and /@fs requests.
+ */
+function remoteAccessPlugin(): Plugin {
+  return {
+    name: 'jev-social-remote-access',
+    configureServer(server) {
+      server.middlewares.use((req: IncomingMessage, res: ServerResponse, next) => {
+        const host = String(req.headers.host || '').toLowerCase()
+        const hostname = host.replace(/:\d+$/, '').replace(/^\[|\]$/g, '')
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return next()
+        const login = String(req.headers['tailscale-user-login'] || '').trim().toLowerCase()
+        const allowed = REMOTE_HOSTS.includes(host) && login && (!REMOTE_USERS.length || REMOTE_USERS.includes(login))
+        return allowed ? next() : send(res, 403, { error: 'forbidden' })
+      })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), reportsPlugin()],
+  plugins: [remoteAccessPlugin(), react(), tailwindcss(), reportsPlugin()],
+  server: { allowedHosts: REMOTE_HOSTS.map((host) => host.replace(/:\d+$/, '')) },
   resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
 })

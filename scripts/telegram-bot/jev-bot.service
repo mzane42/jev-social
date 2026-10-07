@@ -1,0 +1,23 @@
+[Unit]
+Description=jev-social Telegram bot (long-polling; /profile queues collections)
+After=network-online.target xvfb@:99.service
+Wants=network-online.target xvfb@:99.service
+
+[Service]
+Type=simple
+User=anis
+WorkingDirectory=/home/anis/www/jev-social
+Environment=HOME=/home/anis
+Environment=DISPLAY=:99
+Environment=JEV_DASHBOARD_URL=https://jarvis.taila9029e.ts.net:8090
+Environment=PATH=/home/anis/.local/bin:/home/anis/.nvm/versions/node/v24.15.0/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/anis/.nvm/versions/node/v24.15.0/bin/node /home/anis/www/jev-social/scripts/telegram-bot/bot.mjs
+ExecStopPost=-/home/anis/.local/bin/socai stop
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=3
+StartLimitIntervalSec=60
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
