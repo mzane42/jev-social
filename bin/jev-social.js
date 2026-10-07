@@ -236,7 +236,7 @@ try {
         if (flags.dryRun) {
           for (const q of result.planned) console.log(`${q.mode.padEnd(8)} ${q.query.padEnd(24)} socai ${q.args.join(" ")}`);
         } else {
-          console.log(`shop ${result.date}: ${result.cards} cards, ${result.detailed} detailed, ${result.products} products, ${result.creators} creators, ${result.discovered.length} new sellers, ${result.errors.length} errors, ${result.skipped} left for tomorrow`);
+          console.log(`shop ${result.date}: ${result.cards} cards, ${result.detailed} detailed (${result.refreshed} refreshed), ${result.products} products, ${result.creators} creators, ${result.discovered.length} new sellers, ${result.errors.length} errors, ${result.skipped} left for tomorrow`);
           for (const error of result.errors) console.error(`  ! ${error}`);
           console.log(result.file);
         }

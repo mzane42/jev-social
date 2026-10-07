@@ -37,6 +37,12 @@ export function createShopStore(db) {
     ON CONFLICT (date, kind, id) DO UPDATE SET views = excluded.views, likes = excluded.likes, comments = excluded.comments,
       shares = excluded.shares, saves = excluded.saves, followers = excluded.followers, sold_text = excluded.sold_text, price = excluded.price`);
   const detailed = db.prepare("SELECT url FROM shop_videos WHERE detailed_at >= ?");
+  // Product videos not read today, newest views first: re-read daily so snapshots give a day-over-day delta.
+  const refreshable = db.prepare(`SELECT v.url, v.mode, v.query FROM shop_videos v
+    LEFT JOIN shop_snapshots s ON s.kind = 'video' AND s.id = v.url
+      AND s.date = (SELECT MAX(date) FROM shop_snapshots WHERE kind = 'video' AND id = v.url)
+    WHERE v.product_id IS NOT NULL AND v.detailed_at < ? AND v.first_seen >= ?
+    ORDER BY COALESCE(s.views, 0) DESC LIMIT ?`);
   const counts = {
     videos: db.prepare("SELECT COUNT(*) AS n FROM shop_videos WHERE detailed_at >= ?"),
     products: db.prepare("SELECT COUNT(*) AS n FROM shop_products WHERE last_seen >= ?"),
@@ -50,6 +56,7 @@ export function createShopStore(db) {
     upsertVideo: (row, productId, at) => video.run(row.url, row.videoId, row.handle, productId, row.isEc ? 1 : 0, row.caption, row.createdAt, row.duration, row.mode, row.query, at, at),
     snapshot: (kind, id, date, s = {}) => snap.run(date, kind, id, n(s.views), n(s.likes), n(s.comments), n(s.shares), n(s.saves), n(s.followers), s.soldText ?? null, s.price ?? null),
     detailedSince: (date) => new Set(detailed.all(date).map((r) => r.url)),
+    refreshable: (date, { since, limit }) => refreshable.all(date, since, limit),
     counts: (date) => Object.fromEntries(Object.entries(counts).map(([k, q]) => [k, q.get(date).n])),
   };
 }

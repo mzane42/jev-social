@@ -106,6 +106,28 @@ test("collectShop skips URLs already detailed today and honours dailyCap", async
   assert.equal(result.skipped, 1);
 });
 
+test("collectShop re-reads recent product videos not detailed today", async () => {
+  const search = await fixture("search.json");
+  const details = await fixture("get-videos.json");
+  const store = createShopStore(new DatabaseSync(":memory:"));
+  const url = "https://www.tiktok.com/@demo_seller/video/7001";
+  const yesterday = "2026-10-06T07:30:00.000Z";
+  store.upsertProduct({ productId: "1729000000000000001", title: "p", shortTitle: "p", url: "u", sellerId: null, categories: [], skuCount: 1, coverUrl: null, source: "TikTok Shop" }, yesterday);
+  store.upsertVideo({ url, videoId: "7001", handle: "demo_seller", caption: "", createdAt: null, duration: null, isEc: true, mode: "tag", query: "x" }, "1729000000000000001", yesterday);
+  store.snapshot("video", url, "2026-10-06", { views: 10 });
+  const stale = "https://www.tiktok.com/@demo_seller/video/6999"; // product video but older than refreshDays
+  store.upsertVideo({ url: stale, videoId: "6999", handle: "demo_seller", caption: "", createdAt: null, duration: null, isEc: true, mode: "tag", query: "x" }, "1729000000000000001", "2026-09-01T07:30:00.000Z");
+  const calls = [];
+  const runJson = async (args) => { calls.push(args); return args[1] === "search" ? { cards: [] } : details; };
+  const outDir = await mkdtemp(path.join(tmpdir(), "shop-"));
+  const result = await collectShop({ runJson, store, cfg: { ...cfg, creators: [] }, niche: "t", outDir, now: at, sleep: async () => {}, random: () => 0 });
+  const videos = calls.filter((a) => a[1] === "get-videos").flatMap((a) => a.filter((_, i) => a[i - 1] === "--video"));
+  assert.deepEqual(videos, [url], "only the recent product video is re-read");
+  assert.equal(result.cards, 0);
+  assert.equal(result.refreshed, 1);
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM shop_snapshots WHERE kind = 'video' AND id = ?").get(url).n, 2, "one snapshot per day");
+});
+
 test("collectShop dry run only plans", async () => {
   const store = createShopStore(new DatabaseSync(":memory:"));
   const result = await collectShop({ runJson: async () => { throw new Error("must not run"); }, store, cfg, niche: "t", outDir: tmpdir(), now: at, dryRun: true });
