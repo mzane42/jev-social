@@ -47,3 +47,20 @@ journalctl -u jev-bot -f
 
 Anyone whose chat ID is allowed triggers collections on the socai browser sessions of the host
 account.
+
+## Daily TikTok Shop collection
+
+`shop-daily.sh [niche]` runs `jev-social shop collect`, stops socai, then posts the summary line
+and the five products with the most views of the day to every chat in `TELEGRAM_CHAT_ID`. It
+reads the same env file as the bot. `jev-shop-collect.service` + `.timer` run it every morning
+at 07:00 (±20 min):
+
+```sh
+sudo install -m 644 scripts/telegram-bot/jev-shop-collect.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now jev-shop-collect.timer
+sudo systemctl start jev-shop-collect.service   # run once now
+journalctl -u jev-shop-collect -n 50 --no-pager
+```
+
+The collection needs the socai build with TikTok Shop anchors (fork branch `feat/tiktok-anchors`,
+see `docs/GUIDE-LOCAL.md`) and a TikTok session in the socai Chrome profile of the host.
