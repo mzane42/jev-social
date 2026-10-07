@@ -427,10 +427,13 @@ export async function runSocaiJson(bin, args, { env, onProgress, signal, timeout
     });
   }
   if (result.code !== 0) {
+    // socai exits 1 when any item of a batch is incomplete (ok=false) while stdout still holds the full JSON; keep it for callers.
+    let data = null;
+    try { data = parseJsonOutput(result.stdout); } catch { /* no JSON: nothing to keep */ }
     throw new AppError(`socai CLI failed: ${concise(result.stderr || result.stdout)}`, {
       code: "SOCAI_FAILED",
       status: 502,
-      details: { exitCode: result.code, ...(result.signal ? { signal: result.signal } : {}) },
+      details: { exitCode: result.code, ...(result.signal ? { signal: result.signal } : {}), ...(data ? { data } : {}) },
     });
   }
 

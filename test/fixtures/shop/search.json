@@ -1,0 +1,5 @@
+{ "ok": true, "query": "#tiktokshopfrance", "count": 3, "cards": [
+  { "url": "https://www.tiktok.com/@demo_seller/video/7001", "author_id": "demo_seller", "title": "Mon lit #TikTokShopFrance", "views": "12.4K", "position": 0 },
+  { "url": "https://www.tiktok.com/@demo_other/video/7002", "author_id": "demo_other", "title": "Les 5 niches", "views": "2006", "position": 1 },
+  { "url": "https://www.tiktok.com/@demo_gone/video/7003", "author_id": "demo_gone", "title": "gone", "views": "", "position": 2 }
+] }

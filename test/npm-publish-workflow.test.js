@@ -194,12 +194,17 @@ test("the npm tarball has one reviewed file set and no bundled dependencies", ()
     "src/profile/adapters/openrouter-insights.js",
     "src/profile/adapters/socai-collector.js",
     "src/profile/adapters/sqlite-repository.js",
+    "src/profile/adapters/ytdlp-fallback.js",
     "src/profile/analyze.js",
     "src/profile/domain.js",
     "src/query.js",
+    "src/radar.js",
     "src/report.js",
     "src/runs.js",
     "src/server.js",
+    "src/shop-guard.js",
+    "src/shop-store.js",
+    "src/shop.js",
     "src/socai.js",
   ]);
   assert.ok(files.every((path) => !path.startsWith("/") && !path.includes("..")));

@@ -1,0 +1,50 @@
+{
+  "count": 3, "failures": 1, "ok": false,
+  "videos": [
+    {
+      "ok": true, "locator": "https://www.tiktok.com/@demo_seller/video/7001",
+      "entity": {
+        "entity_type": "video", "platform": "tiktok", "video_id": "7001",
+        "url": "https://www.tiktok.com/@demo_seller/video/7001",
+        "description": "Mon lit est devenu tellement plus moelleux ! #Surmatelas #TikTokShopFrance",
+        "created_at": "2026-07-28T15:41:27.000Z", "duration_seconds": 15,
+        "author": "Demo Seller", "author_id": "demo_seller", "author_url": "https://www.tiktok.com/@demo_seller",
+        "likes": "7112", "comments_count": "46", "shares": "2282", "favorites": "2910", "views": "12.4K",
+        "is_ec_video": 1,
+        "anchors": [
+          { "type": 35, "extra": "[{\"keyword\":\"Surmatelas épais\",\"id\":1729000000000000001,\"type\":33,\"component_key\":\"anchor_shop\",\"extra\":\"{\\\"product_id\\\":1729000000000000001,\\\"title\\\":\\\"Surmatelas en fibre de bambou\\\",\\\"elastic_title\\\":\\\"Surmatelas épais\\\",\\\"seller_id\\\":8647000000000000001,\\\"source\\\":\\\"TikTok Shop\\\",\\\"price\\\":0,\\\"currency\\\":\\\"EUR\\\",\\\"cover_url\\\":\\\"\\\",\\\"skus\\\":[{\\\"sku_id\\\":1729000000000000101},{\\\"sku_id\\\":1729000000000000102}],\\\"categories\\\":[{\\\"category_id\\\":600154,\\\"category_name\\\":\\\"Textiles et ameublement\\\",\\\"level\\\":1},{\\\"category_id\\\":808328,\\\"category_name\\\":\\\"Literie\\\",\\\"level\\\":2}]}\"}]" }
+        ],
+        "top_comments": [ { "author": "demo_fan", "text": "Il est où le lien ?", "likes": "12" } ]
+      }
+    },
+    {
+      "ok": true, "locator": "https://www.tiktok.com/@demo_other/video/7002",
+      "entity": {
+        "entity_type": "video", "platform": "tiktok", "video_id": "7002",
+        "url": "https://www.tiktok.com/@demo_other/video/7002",
+        "description": "Les 5 niches qui explosent #ecommerce", "created_at": "2026-10-01T10:00:00.000Z", "duration_seconds": 60,
+        "author": "Demo Other", "author_id": "demo_other", "author_url": "https://www.tiktok.com/@demo_other",
+        "likes": "10", "comments_count": "0", "shares": "1", "favorites": "2", "views": "2006",
+        "is_ec_video": 0,
+        "anchors": [ { "type": 54, "keyword": "CapCut", "extra": "" } ],
+        "top_comments": []
+      }
+    },
+    { "ok": false, "locator": "https://www.tiktok.com/@demo_gone/video/7003", "error": "navigation_timeout", "reason": "video_read_failed" },
+    {
+      "ok": false, "locator": "https://www.tiktok.com/@demo_partial/video/7004", "reason": "video_detail_incomplete", "missing": ["top_comments"],
+      "entity": {
+        "entity_type": "video", "platform": "tiktok", "video_id": "7004",
+        "url": "https://www.tiktok.com/@demo_partial/video/7004",
+        "description": "Ce tapis de douche #maison #TikTokShopFrance", "created_at": "2026-09-01T10:00:00.000Z", "duration_seconds": 20,
+        "author": "Demo Partial", "author_id": "demo_partial", "author_url": "https://www.tiktok.com/@demo_partial",
+        "likes": "900", "comments_count": "12", "shares": "30", "favorites": "80", "views": "45.1K",
+        "is_ec_video": 1,
+        "anchors": [
+          { "type": 35, "extra": "[{\"keyword\":\"Tapis de douche\",\"id\":1729000000000000002,\"type\":33,\"component_key\":\"anchor_shop\",\"extra\":\"{\\\"product_id\\\":1729000000000000002,\\\"title\\\":\\\"Tapis de douche lapin\\\",\\\"seller_id\\\":8647000000000000002,\\\"source\\\":\\\"TikTok Shop\\\",\\\"categories\\\":[]}\"}]" }
+        ],
+        "top_comments": []
+      }
+    }
+  ]
+}
