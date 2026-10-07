@@ -122,18 +122,27 @@ try {
   } else if (command === "profile") {
     await loadLocalEnv();
     const flags = parseArgs(rest);
-    const deps = await profileDeps();
-    const result = await analyzeProfile(deps, {
-      url: flags._[0],
-      niche: flags.niche,
-      videos: Number(flags.videos ?? 12),
-      deep: Number(flags.deep ?? 3),
-    });
-    if (result.snapshot.fallbackFrom) console.error(`Not found, fell back: ${result.snapshot.fallbackFrom}`);
-    if (result.snapshot.partial) console.error(`Partial capture: ${result.snapshot.partialReason}`);
-    if (result.classification.skipped) console.error(result.classification.skipped);
-    else if (result.classification.classified) console.error(`Jev classified ${result.classification.classified} videos`);
-    console.log(path.join(result.dir, "report.html"));
+    // SIGTERM aborts the run so the detached socai process tree is stopped, not orphaned.
+    const controller = new AbortController();
+    const onSigterm = () => controller.abort();
+    process.once("SIGTERM", onSigterm);
+    try {
+      const deps = await profileDeps();
+      const result = await analyzeProfile(deps, {
+        url: flags._[0],
+        niche: flags.niche,
+        videos: Number(flags.videos ?? 12),
+        deep: Number(flags.deep ?? 3),
+        signal: controller.signal,
+      });
+      if (result.snapshot.fallbackFrom) console.error(`Not found, fell back: ${result.snapshot.fallbackFrom}`);
+      if (result.snapshot.partial) console.error(`Partial capture: ${result.snapshot.partialReason}`);
+      if (result.classification.skipped) console.error(result.classification.skipped);
+      else if (result.classification.classified) console.error(`Jev classified ${result.classification.classified} videos`);
+      console.log(path.join(result.dir, "report.html"));
+    } finally {
+      process.off("SIGTERM", onSigterm);
+    }
   } else if (command === "media") {
     const flags = parseArgs(rest);
     const niche = validateNiche(flags._[0]);
