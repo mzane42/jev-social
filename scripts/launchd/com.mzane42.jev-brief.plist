@@ -6,12 +6,12 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string><string>-lc</string>
-    <string>cd /Users/bubblz/cinema/jev-social &amp;&amp; node bin/jev-social.js radar --niche football-anime --max 40; node bin/jev-social.js brief --niche football-anime --social --notify</string>
+    <string>/Users/bubblz/cinema/drama/foot-manga-drama/veille/pull.sh</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict><key>PATH</key><string>/Users/bubblz/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
   <key>StartCalendarInterval</key>
-  <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>15</integer></dict>
+  <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>45</integer></dict>
   <key>StandardOutPath</key><string>/Users/bubblz/Library/Logs/jev-brief.log</string>
   <key>StandardErrorPath</key><string>/Users/bubblz/Library/Logs/jev-brief.log</string>
 </dict>
