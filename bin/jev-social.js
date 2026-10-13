@@ -40,6 +40,7 @@ Usage:
   jev-social media <niche> [--top 5 --flops 3]    Download top/flop TikTok videos, frames, local transcript, hook
   jev-social media <niche> --rehook               Re-read hooks from saved frames (no download)
   jev-social radar [--max 40] [--no-jev]          Story radar: RSS news, cast match, Jev scoring
+  jev-social brief [--social] [--notify]          Morning brief: matches, radar, trends [--q "a,b"]
   jev-social shop collect --niche <slug>          TikTok Shop watch [--dry-run]: searches, product anchors, day file
 
 Search options:
@@ -181,6 +182,7 @@ try {
     for (const c of result.candidates) console.log(`${String(c.score).padStart(3)}  ${c.account.padEnd(40)} ${c.signals.join(", ")}`);
     console.error(`${result.candidates.length} candidates → ${deps.dbPath}`);
   } else if (command === "radar") {
+    await loadLocalEnv(); // ponytail: radar never read .env, so Jev scoring was silently off
     const flags = parseArgs(rest);
     const niche = validateNiche(flags.niche ?? "football-anime");
     const deck = { niche, ...JSON.parse(await readFile(new URL(`../niches/${niche}.json`, import.meta.url), "utf8")) };
@@ -196,6 +198,47 @@ try {
       log: (line) => console.error(line),
     });
     console.log(`${result.fresh} fresh items from ${result.feeds} feeds, ${result.castMatched} mention the cast, ${result.scored} scored by Jev`);
+  } else if (command === "brief") {
+    const flags = parseArgs(rest);
+    const niche = validateNiche(flags.niche ?? "football-anime");
+    const deck = { niche, ...JSON.parse(await readFile(new URL(`../niches/${niche}.json`, import.meta.url), "utf8")) };
+    const { databasePath, openDatabase } = await import("../src/profile/adapters/sqlite-repository.js");
+    const { castFrom } = await import("../src/radar.js");
+    const B = await import("../src/brief.js");
+    const registry = deck.radar?.registry ? await B.readOptional(deck.radar.registry) : "";
+    const cast = castFrom(registry, deck.radar?.extraCast ?? [], deck.radar?.castIgnore ?? []);
+    const db = openDatabase(databasePath());
+    const brief = await B.collectBrief({ db, deck, cast, log: (line) => console.error(line) });
+    let social = null;
+    if (flags.social) {
+      const { runSocaiSearch, resolveSocaiBin } = await import("../src/socai.js");
+      const { runProcess } = await import("../src/process.js");
+      const config = await readConfig();
+      const env = { ...process.env, SOCAI_TELEMETRY: "0", SOCAI_TELEMETRY_QUERY_TEXT: "off", SOCAI_NO_UPDATE_CHECK: "1" };
+      const queries = (flags.q ? String(flags.q).split(",") : [...(deck.brief?.socialQueries ?? []), ...new Set(brief.radar.slice(0, 5).map((i) => JSON.parse(i.cast_names)[0])), brief.matches[0]?.name.replace(/ at /, " ")])
+        .map((q) => q.trim()).filter(Boolean).slice(0, 5);
+      social = await B.socialCheck({
+        queries,
+        search: (query, num) => runSocaiSearch({ config, env, platform: "tiktok", query, limit: num }),
+        stop: async () => runProcess(await resolveSocaiBin(config, env), ["stop"], { timeoutMs: 30_000, env }).catch(() => {}),
+        busy: async () => (await import("../src/shop-guard.js")).socaiBusy({ runsDir: path.join(process.env.SOCAI_HOME || path.join(process.env.HOME, ".socai"), "runs") }),
+        log: (line) => console.error(line),
+      });
+    }
+    const dir = process.env.JEV_BRIEF_DIR || deck.brief?.outDir || path.join(process.env.HOME, ".jev-social", "brief");
+    const igNotes = deck.brief?.igNotes ? await B.readOptional(deck.brief.igNotes) : "";
+    const file = await B.writeBrief(path.join(dir, `ACTU-${brief.date}.md`), B.renderBrief(brief, { igNotes, social }));
+    const line = B.headline(brief);
+    console.log(flags.printTelegram ? B.telegramDigest(brief) : `${file}\n${line}`);
+    if (flags.notify) {
+      const { runProcess } = await import("../src/process.js");
+      const esc = (t) => t.replaceAll("\\", "").replaceAll('"', "'");
+      await runProcess("osascript", ["-e", `display notification "${esc(line)}" with title "Veille actu ${brief.date}"`], { timeoutMs: 10_000 }).catch(() => {});
+      const { TELEGRAM_BOT_TOKEN: token, TELEGRAM_CHAT_ID: chats } = process.env;
+      for (const chat of String(chats ?? "").split(/[\s,]+/).filter(Boolean)) {
+        if (token) await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text: B.telegramDigest(brief), parse_mode: "HTML", disable_web_page_preview: true }) }).catch(() => {});
+      }
+    }
   } else if (command === "shop") {
     const sub = rest[0];
     const flags = parseArgs(rest.slice(1));
@@ -368,6 +411,9 @@ function parseArgs(args) {
     ["--no-verify", "noVerify"],
     ["--no-jev", "noJev"],
     ["--dry-run", "dryRun"],
+    ["--social", "social"],
+    ["--notify", "notify"],
+    ["--print-telegram", "printTelegram"],
   ]);
   const valueFlags = new Map([
     ["--platform", "platform"],
@@ -385,6 +431,7 @@ function parseArgs(args) {
     ["--hashtags", "hashtags"],
     ["--max", "max"],
     ["--cap", "cap"],
+    ["--q", "q"],
   ]);
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
