@@ -8,6 +8,8 @@ import { DatabaseSync } from "node:sqlite";
 export const NICHE = /^[a-z0-9-]{1,48}$/;
 export const TARGET = /^(?:@?[A-Za-z0-9._]{1,64}|https:\/\/(?:www\.)?(?:tiktok|instagram)\.com\/\S{1,120})$/;
 
+export const BRIEF_NICHE = "football-anime";
+
 export const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 const fmt = (n) => (Number.isFinite(n) ? new Intl.NumberFormat("fr-FR", { notation: "compact" }).format(n) : "—");
 
@@ -102,9 +104,25 @@ export function createBot({ send, run, store, config, log = console.error, now =
     "/niches — niches connues\n" +
     "/last — 5 derniers rapports\n" +
     "/queue — collecte en cours / en attente\n" +
+    "/brief [social] — veille actu football-anime (social = + recherches TikTok)\n" +
     `📊 Dashboard: ${dashboard}`;
 
+  async function runBrief(job) {
+    const args = ["bin/jev-social.js", "brief", "--niche", BRIEF_NICHE, "--print-telegram", ...(job.social ? ["--social"] : [])];
+    const res = await run(config.nodeBin, args, { timeoutMs: config.jobTimeoutMs });
+    const out = (res.stdout || "").trim();
+    if (res.code !== 0 || !out) {
+      log(`[jev-bot] brief failed: ${res.error?.message || ""} code=${res.code} signal=${res.signal} timedOut=${res.timedOut}\n${res.stderr || ""}`);
+      await send(job.chat, `❌ Brief en échec${res.timedOut ? " (délai dépassé)" : ""}. Détails dans les logs du VPS.`);
+      return;
+    }
+    await send(job.chat, out);
+    // The digest has no TikTok section; say so when socai-guard skipped it (run < 10 min, or busy).
+    if (job.social && /social: skipped/.test(res.stderr || "")) await send(job.chat, "⚠️ Recherches TikTok non faites : une collecte socai est en cours ou trop récente (&lt; 10 min).");
+  }
+
   async function runJob(job) {
+    if (job.kind === "brief") return runBrief(job);
     const started = now();
     await send(job.chat, `⏳ Collecte <b>${esc(job.target)}</b> · niche <code>${esc(job.niche)}</code>…`);
     const res = await run(config.nodeBin, ["bin/jev-social.js", "profile", job.target, "--niche", job.niche], { timeoutMs: config.jobTimeoutMs });
@@ -177,6 +195,19 @@ export function createBot({ send, run, store, config, log = console.error, now =
       queue.push({ chat, target, niche });
       const ahead = queue.length - 1 + (current ? 1 : 0);
       if (ahead) await send(chat, `🕒 En file (${ahead} avant).`);
+      void pump();
+      return;
+    }
+
+    if (cmd === "/brief") {
+      const social = args[0]?.toLowerCase() === "social";
+      if (args.length > 1 || (args.length && !social)) return send(chat, "Usage: /brief ou /brief social");
+      // A social brief drives socai: refuse rather than queue behind a collection (one socai run at a time).
+      if (social && (current || queue.length)) return send(chat, "⛔ Collecte en cours : /brief social refusé. Réessaie après (voir /queue), ou /brief sans social.");
+      if (!current && !queue.length) drained = new Promise((ok) => { markDrained = ok; });
+      queue.push({ chat, kind: "brief", social, target: social ? "brief social" : "brief", niche: BRIEF_NICHE });
+      const ahead = queue.length - 1 + (current ? 1 : 0);
+      await send(chat, ahead ? `🕒 Brief en file (${ahead} avant).` : `⏳ Brief${social ? " + TikTok" : ""} en cours…`);
       void pump();
       return;
     }

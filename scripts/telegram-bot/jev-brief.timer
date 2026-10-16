@@ -1,0 +1,9 @@
+[Unit]
+Description=Run the morning brief at 08:15 Paris time (the Mac pulls it at 08:45)
+
+[Timer]
+OnCalendar=*-*-* 08:15:00 Europe/Paris
+Persistent=true
+
+[Install]
+WantedBy=timers.target

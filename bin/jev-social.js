@@ -237,7 +237,14 @@ try {
       await runProcess("osascript", ["-e", `display notification "${esc(line)}" with title "Veille actu ${brief.date}"`], { timeoutMs: 10_000 }).catch(() => {});
       const { TELEGRAM_BOT_TOKEN: token, TELEGRAM_CHAT_ID: chats } = process.env;
       for (const chat of String(chats ?? "").split(/[\s,]+/).filter(Boolean)) {
-        if (token) await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text: B.telegramDigest(brief), parse_mode: "HTML", disable_web_page_preview: true }) }).catch(() => {});
+        if (!token) continue;
+        // Telegram answers 200 + ok:true only when delivered; log the reason otherwise (never the token).
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text: B.telegramDigest(brief), parse_mode: "HTML", disable_web_page_preview: true }) })
+          .then(async (r) => ({ status: r.status, ...(await r.json().catch(() => ({}))) }), (e) => ({ status: 0, description: e.message }));
+        if (!res.ok) {
+          console.error(`telegram: send failed (${res.status}) ${res.description ?? ""}`);
+          process.exitCode = 1;
+        }
       }
     }
   } else if (command === "shop") {
