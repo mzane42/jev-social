@@ -7,6 +7,7 @@ test("parsers read trends24, Netflix TSV, Reddit Atom and TikTok counts", () => 
   const tsv = "week\tcategory\tweekly_rank\tshow_title\tseason_title\n2026-10-04\tTV (English)\t1\tEast of Eden\tN/A\n2026-10-04\tTV (English)\t9\tX\tN/A\n2026-09-27\tTV (English)\t1\tOld\tN/A";
   assert.deepEqual(parseNetflixTop10(tsv, 3).map((r) => r.title), ["East of Eden"]);
   assert.deepEqual(parseAtom(`<feed><entry><title>Vini &quot;red&quot;</title><link href="https://r.test/1" /></entry></feed>`), [{ title: 'Vini "red"', link: "https://r.test/1" }]);
+  assert.equal(parseAtom(`<entry><title>a &amp;lt;b&amp;gt;</title></entry>`)[0].title, "a &lt;b&gt;");
   assert.equal(parseCount("127.3K"), 127_300);
   assert.equal(parseCount("1,2M"), 1_200_000);
   assert.equal(parseCount(""), 0);
@@ -42,4 +43,6 @@ test("telegramDigest escapes HTML and stays under Telegram's limit", async () =>
   assert.ok(text.length <= 4000);
   assert.match(text, /A &lt;b&gt; &amp;/);
   assert.doesNotMatch(text, /<b> &/);
+  const quoted = telegramDigest({ ...b, radar: [{ title: "t", link: 'https://x.test/"onmouseover="x', score: 1 }] });
+  assert.match(quoted, /href="https:\/\/x\.test\/&quot;onmouseover=&quot;x"/);
 });

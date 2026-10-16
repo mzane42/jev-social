@@ -11,7 +11,8 @@ const parisDay = (d) => d.toLocaleDateString("sv-SE", { timeZone: "Europe/Paris"
 
 // Reddit serves Atom (<entry>, <link href>), not RSS.
 export function parseAtom(xml) {
-  const decode = (t) => t.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+  // &amp; last, so "&amp;lt;" stays "&lt;" instead of becoming "<".
+  const decode = (t) => t.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
   return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map(([, e]) => ({
     title: decode(e.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? "").trim(), link: e.match(/<link href="([^"]+)"/)?.[1] ?? "",
   })).filter((i) => i.title);
@@ -180,7 +181,7 @@ export function headline(b) {
 
 // Phone-sized digest for Telegram (HTML parse mode, under the 4096-char limit).
 export function telegramDigest(b) {
-  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const fr = (iso) => new Date(iso).toLocaleString("fr-FR", { timeZone: "Europe/Paris", weekday: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
   const lines = [
     `<b>Veille actu ${b.date}</b>`,
