@@ -199,6 +199,7 @@ try {
     });
     console.log(`${result.fresh} fresh items from ${result.feeds} feeds, ${result.castMatched} mention the cast, ${result.scored} scored by Jev`);
   } else if (command === "brief") {
+    await loadLocalEnv();
     const flags = parseArgs(rest);
     const niche = validateNiche(flags.niche ?? "football-anime");
     const deck = { niche, ...JSON.parse(await readFile(new URL(`../niches/${niche}.json`, import.meta.url), "utf8")) };
