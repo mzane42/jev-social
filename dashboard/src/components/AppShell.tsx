@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useOutletContext, useParams } from 'react-router'
-import { ChartColumn, ChartScatter, Menu, Radar, RefreshCw, ServerCrash } from 'lucide-react'
+import { ChartColumn, ChartScatter, Menu, Radar, RefreshCw, ServerCrash, ShoppingBag, SquareKanban, UserRound } from 'lucide-react'
 import { groupNiches, useReportsLoader, type NicheInfo } from '@/lib/api'
 import { splitAccount } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -92,6 +92,21 @@ function SidebarNav({ niches, onNavigate }: { niches: NicheInfo[]; onNavigate?: 
           <li>
             <NavLink to="/radar" onClick={onNavigate} className={({ isActive }) => navCls(isActive)}>
               <Radar className="size-4" aria-hidden /> Story radar
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/me" onClick={onNavigate} className={({ isActive }) => navCls(isActive)}>
+              <UserRound className="size-4" aria-hidden /> My accounts
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/backlog" onClick={onNavigate} className={({ isActive }) => navCls(isActive)}>
+              <SquareKanban className="size-4" aria-hidden /> Backlog
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/shop" onClick={onNavigate} className={({ isActive }) => navCls(isActive)}>
+              <ShoppingBag className="size-4" aria-hidden /> TikTok Shop
             </NavLink>
           </li>
         </ul>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { AtSign, MessagesSquare, Newspaper, PenTool, Tv, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { CrossingChart } from '@/components/charts'
+import { LiveRadar, useRadar } from '@/components/LiveRadar'
 import { Chip, EmptyState, MockBadge, Panel, ScoreBar, SectionTitle } from '@/components/kit'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -35,6 +36,9 @@ export function RadarPage() {
       .sort((a, b) => b.scores.drama + b.scores.nicheGap - (a.scores.drama + a.scores.nicheGap))
   }, [active])
   const maxHeat = Math.max(...radarMock.characters.map((c) => c.heat))
+  const live = useRadar()
+  // Real stories once `jev-social radar` has run; the mock stays as the empty-state layout.
+  if (live?.length) return <LiveRadar stories={live} />
 
   return (
     <div className="space-y-6">
