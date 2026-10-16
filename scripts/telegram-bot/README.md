@@ -10,6 +10,7 @@ long polling, so there is no public endpoint, and it answers only the chat IDs l
 | `/niches` | Niches in the DB with account count and last date |
 | `/last` | Five most recent reports |
 | `/queue` | Running and waiting collections |
+| `/brief [social]` | Morning brief for football-anime (`social` adds TikTok searches; refused while a collection runs) |
 
 Collections run one at a time and `socai stop` runs after each, per the GUIDE. A job is killed
 after `JEV_BOT_JOB_TIMEOUT_MS` (default 15 min). The database is opened read-only.

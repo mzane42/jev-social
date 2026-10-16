@@ -38,7 +38,13 @@
       "Vinicius",
       "Bellingham",
       "Ancelotti",
-      "Enrique"
+      "Enrique",
+      "Yamal",
+      "Mbappé",
+      "Kane",
+      "Haaland",
+      "Dembélé",
+      "Olise"
     ],
     "feeds": [
       {
@@ -65,5 +71,47 @@
       "medina",
       "jorge"
     ]
+  },
+  "brief": {
+    "outDir": "/Users/bubblz/cinema/drama/foot-manga-drama/veille",
+    "igNotes": "/Users/bubblz/cinema/drama/foot-manga-drama/veille/IG.md",
+    "leagues": [
+      "uefa.champions",
+      "eng.1",
+      "esp.1",
+      "fra.1"
+    ],
+    "watchClubs": [
+      "Real Madrid",
+      "Barcelona",
+      "Paris Saint-Germain",
+      "Manchester City",
+      "Liverpool",
+      "Arsenal",
+      "Bayern",
+      "Chelsea",
+      "Manchester United",
+      "Inter",
+      "Juventus",
+      "Atletico",
+      "Tottenham",
+      "Newcastle",
+      "Aston Villa",
+      "Dortmund",
+      "Marseille",
+      "Napoli",
+      "AC Milan"
+    ],
+    "trendsGeo": "FR",
+    "xCountries": [
+      "france",
+      "united-kingdom",
+      "spain"
+    ],
+    "wiki": [
+      "fr",
+      "en"
+    ],
+    "socialQueries": []
   }
 }

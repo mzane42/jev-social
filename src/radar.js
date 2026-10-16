@@ -97,10 +97,13 @@ const RADAR_SCHEMA = `CREATE TABLE IF NOT EXISTS radar_items (
   fetched_at TEXT NOT NULL, scored_at TEXT
 )`;
 
+// brief reads radar_items too, possibly before radar ever ran on this database.
+export const ensureRadarSchema = (db) => db.exec(RADAR_SCHEMA);
+
 export async function runRadar({ db, deck, fetchImpl = fetch, provider, apiKey, max = 40, jev = true, log = () => {}, now = () => new Date() }) {
   const cfg = deck?.radar;
   if (!cfg?.feeds?.length) throw new Error(`niches/${deck?.niche}.json has no "radar.feeds".`);
-  db.exec(RADAR_SCHEMA);
+  ensureRadarSchema(db);
   const cast = castFrom(cfg.registry ? await readFile(cfg.registry, "utf8").catch(() => "") : "", cfg.extraCast ?? [], cfg.castIgnore ?? []);
   const feeds = [
     ...cfg.feeds,

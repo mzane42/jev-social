@@ -146,3 +146,45 @@ test("runProcess escalates to SIGKILL when SIGTERM is ignored", async () => {
   assert.equal(res.timedOut, true);
   assert.equal(res.signal, "SIGKILL");
 });
+
+test("/brief queues a brief and sends the CLI digest as-is, without touching socai", async () => {
+  const digest = "<b>Veille actu 2026-10-13</b>\n• Matchs";
+  const { bot, sent, calls } = harness({ run: async () => ({ code: 0, stdout: `${digest}\n`, stderr: "" }) });
+  await bot.handleMessage({ chat: { id: CHAT }, text: "/brief" });
+  await bot.drain();
+
+  assert.deepEqual(calls.map((c) => c.args), [["bin/jev-social.js", "brief", "--niche", "football-anime", "--print-telegram"]]);
+  assert.equal(sent.at(-1).text, digest);
+});
+
+test("/brief social adds --social, and is refused while a collection runs", async () => {
+  let release;
+  const { bot, sent, calls } = harness({
+    run: async (cmd, args) => {
+      if (args[1] === "profile") await new Promise((ok) => { release = ok; });
+      return args[1] === "brief" ? { code: 0, stdout: "digest\n", stderr: "social: skipped, run 3 min ago (one collection at a time)\n" } : { code: 1, stdout: "", stderr: "" };
+    },
+  });
+  await bot.handleMessage({ chat: { id: CHAT }, text: "/profile @someone cuisine" });
+  await bot.handleMessage({ chat: { id: CHAT }, text: "/brief social" });
+  assert.match(sent.at(-1).text, /Collecte en cours : \/brief social refusé/);
+  release();
+  await bot.drain();
+  assert.ok(!calls.some((c) => c.args.includes("--social")));
+
+  await bot.handleMessage({ chat: { id: CHAT }, text: "/brief social" });
+  await bot.drain();
+  assert.deepEqual(calls.at(-1).args, ["bin/jev-social.js", "brief", "--niche", "football-anime", "--print-telegram", "--social"]);
+  assert.equal(sent.at(-2).text, "digest");
+  assert.match(sent.at(-1).text, /Recherches TikTok non faites/);
+});
+
+test("/brief failure stays generic and rejects unknown arguments", async () => {
+  const { bot, sent, calls } = harness({ run: async () => ({ code: 1, stdout: "", stderr: "Error at /home/u/secret/path" }) });
+  await bot.handleMessage({ chat: { id: CHAT }, text: "/brief now" });
+  assert.equal(calls.length, 0);
+  await bot.handleMessage({ chat: { id: CHAT }, text: "/brief" });
+  await bot.drain();
+  assert.match(sent.at(-1).text, /Brief en échec/);
+  assert.ok(sent.every((m) => !m.text.includes("/home/u")));
+});

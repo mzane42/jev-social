@@ -177,6 +177,7 @@ test("the npm tarball has one reviewed file set and no bundled dependencies", ()
     "skills/jev-social/SKILL.md",
     "src/actions.js",
     "src/app.js",
+    "src/brief.js",
     "src/classifier.js",
     "src/config.js",
     "src/decision-provider.js",
