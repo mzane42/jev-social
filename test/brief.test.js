@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ageDays, castHits, headline, parseAtom, parseCount, parseNetflixTop10, parseTrends24, renderBrief, socialCheck } from "../src/brief.js";
+import { ageDays, castHits, collectBrief, headline, parseAtom, parseCount, parseNetflixTop10, parseTrends24, renderBrief, socialCheck } from "../src/brief.js";
 
 test("parsers read trends24, Netflix TSV, Reddit Atom and TikTok counts", () => {
   assert.deepEqual(parseTrends24(`<a class=trend-link>#LIVMCI</a><a class=trend-link>Vinicius</a><a class=trend-link>#LIVMCI</a>`), ["#LIVMCI", "Vinicius"]);
@@ -45,4 +45,10 @@ test("telegramDigest escapes HTML and stays under Telegram's limit", async () =>
   assert.doesNotMatch(text, /<b> &/);
   const quoted = telegramDigest({ ...b, radar: [{ title: "t", link: 'https://x.test/"onmouseover="x', score: 1 }] });
   assert.match(quoted, /href="https:\/\/x\.test\/&quot;onmouseover=&quot;x"/);
+});
+
+test("collectBrief works on a fresh database where radar never ran", async () => {
+  const { openDatabase } = await import("../src/profile/adapters/sqlite-repository.js");
+  const b = await collectBrief({ db: openDatabase(":memory:"), deck: { niche: "football-anime", brief: { leagues: [], xCountries: [], wiki: [] } }, fetchImpl: async () => ({ ok: false }) });
+  assert.deepEqual(b.radar, []);
 });

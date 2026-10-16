@@ -3,7 +3,7 @@
 // Attention signals only: a virality number in a BRIEF must still cite a jev-social report (n, lift), GUIDE-LOCAL.
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fold, parseRss } from "./radar.js";
+import { ensureRadarSchema, fold, parseRss } from "./radar.js";
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 Chrome/126 Safari/537.36";
 const ymd = (d) => d.toISOString().slice(0, 10);
@@ -68,6 +68,7 @@ export async function collectBrief({ db, deck, cast = [], fetchImpl = fetch, now
 
   // 2. Radar stories (last 72 h): Jev priority when scored, freshness otherwise.
   if (db) {
+    ensureRadarSchema(db);
     const since = new Date(now.getTime() - 72 * 3_600_000).toISOString();
     out.radar = db.prepare(`SELECT title, link, source, published_at, cast_names, score FROM radar_items
       WHERE published_at >= ? AND cast_names != '[]' ORDER BY score IS NULL, score DESC, published_at DESC LIMIT 12`).all(since);
