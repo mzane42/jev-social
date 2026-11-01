@@ -127,8 +127,9 @@ export function pickMediaTargets(entries, done, { top = 5, flops = 3 } = {}) {
 
 // Download → frames → local transcript → hook reading, per account batch; then re-classify with transcripts.
 // One failed video is recorded with its error and never stops the batch.
-export async function analyzeMedia(deps, { niche, top = 5, flops = 3, rehook = false, log = () => {}, signal }) {
+export async function analyzeMedia(deps, { niche, top = 5, flops = 3, rehook = false, reaudio = false, log = () => {}, signal }) {
   const { media, repository } = deps;
+  if (reaudio) return rereadAudio(deps, { niche, log, signal });
   const hookTypes = (await deps.loadDeck?.(niche))?.hooks ?? undefined;
   if (rehook) return rereadHooks(deps, { niche, hookTypes, log, signal });
   const entries = (await repository.listLatest()).filter((entry) => entry.niche === niche && entry.data.snapshot.platform === "tiktok");
@@ -147,7 +148,8 @@ export async function analyzeMedia(deps, { niche, top = 5, flops = 3, rehook = f
         const frames = await media.frames(videoPath);
         const { text, head } = await media.transcribe(videoPath);
         const hook = await media.readHook({ frames, head, caption: item.caption, hookTypes, signal }).catch((error) => ({ error: error.message }));
-        repository.saveMedia(niche, { url: item.url, videoPath, frames, transcript: text, head, ...hook });
+        const audio = media.audio ? await media.audio(videoPath, { signal }).catch((error) => { if (signal?.aborted) throw error; return { error: error.message }; }) : null;
+        repository.saveMedia(niche, { url: item.url, videoPath, frames, transcript: text, head, ...hook, audio });
         processed += 1;
         log(`  ${item.url.split("/").pop()}: ${hook?.hookType ?? "no hook read"}`);
       } catch (error) {
@@ -168,10 +170,28 @@ async function rereadHooks({ media, repository }, { niche, hookTypes, log, signa
       .catch((error) => ({ error: error.message }));
     // A failed re-read keeps the previous reading instead of overwriting it with an error.
     if (!hook?.error) {
-      repository.saveMedia(niche, { url: row.url, videoPath: row.video_path, frames: row.frames, transcript: row.transcript, head: row.transcript_head, ...hook }, { keepClassification: true });
+      repository.saveMedia(niche, { url: row.url, videoPath: row.video_path, frames: row.frames, transcript: row.transcript, head: row.transcript_head, ...hook, audio: row.audio }, { keepClassification: true });
       processed += 1;
     }
     log(`  ${row.url.split("/").pop()}: ${hook?.hookType ?? hook?.error}`);
+  }
+  return { processed, classified: 0, notes: [] };
+}
+
+// Reads the audio of videos already on disk; keeps frames, transcript, hook and classification.
+async function rereadAudio({ media, repository }, { niche, log, signal }) {
+  let processed = 0;
+  for (const row of repository.media(niche).values()) {
+    if (!row.video_path) continue;
+    let audio = await media.audio(row.video_path, { signal }).catch((error) => { if (signal?.aborted) throw error; return { error: error.message }; });
+    if (!audio.error) {
+      // A failed or skipped listen (no key, model off) keeps the previous good reading; the ffmpeg stats are refreshed.
+      if ((audio.read === null || audio.read?.error) && row.audio?.read && !row.audio.read.error && !audio.noAudio) audio = { ...audio, read: row.audio.read };
+      repository.saveMedia(niche, { url: row.url, videoPath: row.video_path, frames: row.frames, transcript: row.transcript, head: row.transcript_head,
+        hookType: row.hook_type, note: row.hook_note, model: row.hook_model, error: row.error, audio }, { keepClassification: true });
+      processed += 1;
+    }
+    log(`  ${row.url.split("/").pop()}: ${audio.error ?? `${audio.lufs} LUFS, ${audio.read?.soundEffects?.length ?? 0} sfx`}`);
   }
   return { processed, classified: 0, notes: [] };
 }

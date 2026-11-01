@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { copyFile, mkdir, readFile, stat } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { getHomeDir } from "../../config.js";
@@ -47,8 +47,24 @@ async function exists(file) {
 // Default picked on 8 football-anime videos (2026-09-28): the only model that flagged the weak openers as no_hook.
 export const DEFAULT_HOOK_MODEL = "google/gemini-3.8-flash";
 export const FALLBACK_HOOK_MODEL = "openai/gpt-6-luna";
+// Tested 2026-11-01: gemini-3.8-flash accepts input_audio through OpenRouter, gpt-6-luna does not (404).
+export const DEFAULT_AUDIO_MODEL = DEFAULT_HOOK_MODEL;
+const AUDIO_SECONDS = 30;
 
-export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookModel = DEFAULT_HOOK_MODEL, fallbackModel = FALLBACK_HOOK_MODEL, exec = run, fetchImpl = fetch }) {
+// ffmpeg silencedetect + ebur128 stderr → loudness and silences, measured locally (no model, no cost).
+export function parseAudioStats(stderr) {
+  const lufs = /Integrated loudness:\s*I:\s*(-?[\d.]+) LUFS/.exec(stderr);
+  const starts = [...stderr.matchAll(/silence_start: (-?[\d.]+)/g)].map((m) => Number(m[1]));
+  const firstEnd = /silence_end: ([\d.]+)/.exec(stderr);
+  return {
+    lufs: lufs ? Number(lufs[1]) : null,
+    silences: starts.length,
+    // Seconds of silence before the first sound; 0 when the video opens on sound.
+    leadSilenceS: starts.length && starts[0] <= 0.05 && firstEnd ? Number(firstEnd[1]) : 0,
+  };
+}
+
+export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookModel = DEFAULT_HOOK_MODEL, fallbackModel = FALLBACK_HOOK_MODEL, audioModel = DEFAULT_AUDIO_MODEL, exec = run, fetchImpl = fetch }) {
   return {
     root,
     async download(urls, { signal } = {}) {
@@ -98,6 +114,63 @@ export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookMode
       const json = JSON.parse((await readFile(path.join(dir, "transcript.json"), "utf8")).replace(/\bNaN\b/g, "null"));
       const head = (json.segments || []).filter((segment) => segment.start < 3).map((segment) => segment.text.trim()).join(" ");
       return { text: String(json.text || "").trim(), head: head.trim() };
+    },
+    // Loudness and silences (ffmpeg), then one model listen of the first 30 s: music, sound effects, voice start.
+    // A failed listen keeps the measured stats: read becomes { error }.
+    async audio(videoPath, { signal } = {}) {
+      let stderr;
+      try {
+        ({ stderr } = await exec("ffmpeg", ["-hide_banner", "-nostats", "-i", videoPath, "-vn", "-af", "silencedetect=n=-35dB:d=0.4,ebur128=framelog=quiet", "-f", "null", "-"], { maxBuffer: 16 * 1024 * 1024 }));
+      } catch (error) {
+        // A silent video (no audio stream) is a result, not a failure to retry.
+        if (/does not contain any stream|matches no streams/i.test(`${error.stderr || ""} ${error.message}`)) return { lufs: null, silences: 0, leadSilenceS: 0, noAudio: true, read: null };
+        throw error;
+      }
+      const stats = parseAudioStats(String(stderr));
+      if (!apiKey?.trim() || !audioModel || audioModel === "off") return { ...stats, read: null };
+      const clip = path.join(path.dirname(videoPath), "audio-30s.mp3");
+      try {
+        await exec("ffmpeg", ["-y", "-loglevel", "error", "-i", videoPath, "-t", String(AUDIO_SECONDS), "-vn", "-ac", "1", "-ar", "16000", "-b:a", "48k", clip]);
+        const prompt = [
+          `The first ${AUDIO_SECONDS} s of the audio of a short vertical video.`,
+          'Return JSON {"voice_starts_s": number|null, "music": boolean, "music_style": short string|null, "first_sfx_s": number|null, "sound_effects": [short names], "notes": one sentence (max 25 words)}.',
+          "Only what you actually hear; leave a field null or empty rather than guess.",
+        ].join("\n");
+        const timeout = AbortSignal.timeout(60_000);
+        const response = await fetchImpl("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey.trim()}`, "Content-Type": "application/json", "X-Title": "jev-social" },
+          body: JSON.stringify({
+            model: audioModel,
+            temperature: 0,
+            max_tokens: 1_000,
+            response_format: { type: "json_object" },
+            messages: [{ role: "user", content: [{ type: "text", text: prompt }, { type: "input_audio", input_audio: { data: (await readFile(clip)).toString("base64"), format: "mp3" } }] }],
+          }),
+          signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+        });
+        const payload = JSON.parse((await response.text()) || "{}");
+        if (!response.ok) throw new Error(payload?.error?.message || `OpenRouter returned HTTP ${response.status}`);
+        const r = JSON.parse(String(payload?.choices?.[0]?.message?.content || "").trim().replace(/^```(?:json)?\s*|\s*```$/g, ""));
+        const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+        return {
+          ...stats,
+          read: {
+            voiceStartsS: num(r.voice_starts_s),
+            music: typeof r.music === "boolean" ? r.music : null,
+            musicStyle: r.music_style ? String(r.music_style).slice(0, 120) : null,
+            firstSfxS: num(r.first_sfx_s),
+            soundEffects: Array.isArray(r.sound_effects) ? r.sound_effects.slice(0, 12).map((s) => String(s).slice(0, 60)) : [],
+            notes: String(r.notes || "").slice(0, 200),
+            model: String(payload?.model || audioModel).slice(0, 100),
+          },
+        };
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        return { ...stats, read: { error: String(error.message).slice(0, 200) } };
+      } finally {
+        await rm(clip, { force: true });
+      }
     },
     async readHook({ frames, head, caption, hookTypes = HOOK_TYPES, signal }) {
       if (!apiKey?.trim() || !hookModel || hookModel === "off" || !frames.length) return null;
