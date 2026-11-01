@@ -87,7 +87,7 @@ const gate = (where) => new AppError(`TikTok asked to log in or solve a challeng
 
 export async function collectShop({ runJson, store, cfg, niche, outDir, now = () => new Date(), sleep = defaultSleep, random = Math.random, log = () => {}, dryRun = false }) {
   const planned = planQueries(cfg);
-  if (dryRun) return { date: null, file: null, planned, cards: 0, detailed: 0, partial: 0, products: 0, creators: 0, discovered: [], errors: [], skipped: 0 };
+  if (dryRun) return { date: null, file: null, planned, cards: 0, detailed: 0, refreshed: 0, partial: 0, products: 0, creators: 0, discovered: [], errors: [], skipped: 0 };
 
   const started = now();
   const at = started.toISOString();
@@ -123,6 +123,12 @@ export async function collectShop({ runJson, store, cfg, niche, outDir, now = ()
   const todo = [...candidates.keys()].filter((url) => !already.has(url));
   const queue = todo.slice(0, cfg.dailyCap ?? 300);
   const skipped = todo.length - queue.length; // deferred by dailyCap, not the ones already detailed today
+  const cards = candidates.size;
+  // Refresh: re-read the product videos of the last `refreshDays` days (default 14, cap `refreshCap`, default 100)
+  // so shop_snapshots gets one row per day and the dashboard can show a views delta.
+  const since = localDate(new Date(started.getTime() - (cfg.refreshDays ?? 14) * 86_400_000));
+  const refresh = store.refreshable(date, { since, limit: cfg.refreshCap ?? 100 }).filter((r) => !candidates.has(r.url));
+  for (const r of refresh) { candidates.set(r.url, { mode: r.mode, query: r.query }); queue.push(r.url); }
   const watched = new Set(cfg.creators ?? []);
   const videos = [];
   const products = new Map();
@@ -168,5 +174,5 @@ export async function collectShop({ runJson, store, cfg, niche, outDir, now = ()
   const file = path.join(outDir, `${date}.json`);
   const day = { runAt: at, date, niche, modes, videos, products: [...products.values()], creators: [...creators], discovered: [...discovered], partial, errors, usage };
   await writeFile(file, JSON.stringify(day, null, 2), { mode: 0o600 });
-  return { date, file, planned, cards: candidates.size, detailed: videos.length, partial: partial.length, products: products.size, creators: creators.size, discovered: [...discovered], errors, skipped };
+  return { date, file, planned, cards, detailed: videos.length, refreshed: refresh.length, partial: partial.length, products: products.size, creators: creators.size, discovered: [...discovered], errors, skipped };
 }
