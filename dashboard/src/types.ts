@@ -36,6 +36,25 @@ export interface ItemMedia {
   /** Number of frames served by /api/media/frame (0, 1, 2 s). */
   frames: number
   error: string | null
+  /** Audio reading (`jev-social media`): ffmpeg loudness/silences, then a model listen of the first 30 s. */
+  audio?: ItemAudio | null
+}
+
+export interface ItemAudio {
+  lufs: number | null
+  silences: number
+  leadSilenceS: number
+  noAudio?: boolean
+  error?: string
+  read: {
+    voiceStartsS: number | null
+    music: boolean | null
+    musicStyle: string | null
+    firstSfxS: number | null
+    soundEffects: string[]
+    notes: string
+    model: string
+  } | { error: string } | null
 }
 
 export interface JevAnswer {

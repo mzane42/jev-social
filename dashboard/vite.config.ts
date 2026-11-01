@@ -72,6 +72,8 @@ function readReports(): ReportEntry[] {
           head: m.transcript_head,
           frames: (JSON.parse(String(m.frames || '[]')) as string[]).length,
           error: m.error,
+          // Column added 2026-11-01 (`media --reaudio`); absent or null on older rows.
+          audio: m.audio ? JSON.parse(String(m.audio)) : null,
         },
       ]),
     )

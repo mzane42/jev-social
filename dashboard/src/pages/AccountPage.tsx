@@ -12,7 +12,7 @@ import { copyAvoidFrom, itemRows, jevCohort, jevLabel, medianViewsOf, summarize,
 import { T } from '@/lib/tokens'
 import { cn } from '@/lib/utils'
 import { accountExtrasMock } from '@/mocks/account'
-import type { Cohort, CohortMetric, ReportEntry } from '@/types'
+import type { Cohort, CohortMetric, ItemAudio, ReportEntry } from '@/types'
 import { NotFound } from './Home'
 
 export function AccountPage() {
@@ -381,6 +381,7 @@ function HookLab({ rows, platform }: { rows: ItemRow[]; platform: string }) {
                 <p className="mt-0.5 text-xs leading-relaxed text-dim">{note.firstSeconds}</p>
                 {row?.media?.head ? <p className="mt-1 text-xs text-dim italic">“{row.media.head}”</p> : null}
               </div>
+              {row?.media?.audio ? <AudioLine audio={row.media.audio} /> : null}
               {row ? (
                 <ExtLink href={row.url} className="text-xs">
                   Open on {platformName}
@@ -391,6 +392,31 @@ function HookLab({ rows, platform }: { rows: ItemRow[]; platform: string }) {
         ))}
       </div>
     </section>
+  )
+}
+
+function AudioLine({ audio }: { audio: ItemAudio }) {
+  if (audio.error) return <p className="text-xs text-dim">audio: {audio.error}</p>
+  if (audio.noAudio) return <p className="text-xs text-dim">audio: no sound track</p>
+  const read = audio.read && !('error' in audio.read) ? audio.read : null
+  const stats = [
+    audio.lufs !== null ? `${audio.lufs.toFixed(1)} LUFS` : null,
+    audio.leadSilenceS > 0 ? `${audio.leadSilenceS.toFixed(1)} s silent open` : null,
+    `${audio.silences} silence${audio.silences === 1 ? '' : 's'}`,
+    read?.voiceStartsS != null ? `voice ${read.voiceStartsS.toFixed(1)} s` : null,
+  ].filter(Boolean)
+  return (
+    <div className="rounded-lg border border-line p-2.5 text-xs">
+      <p className="num font-medium text-fg">audio: {stats.join(' · ')}</p>
+      {read ? (
+        <>
+          <p className="mt-0.5 text-dim">{read.music ? `music: ${read.musicStyle ?? 'yes'}` : read.music === false ? 'no music' : 'music: unknown'}</p>
+          {read.soundEffects.length ? <p className="mt-0.5 text-dim">sfx: {read.soundEffects.join(', ')}</p> : null}
+        </>
+      ) : audio.read ? (
+        <p className="mt-0.5 text-dim">listen failed</p>
+      ) : null}
+    </div>
   )
 }
 
