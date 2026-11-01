@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { analyzeMedia, pickMediaTargets } from "../src/profile/analyze.js";
 import { classificationText } from "../src/profile/adapters/jev-classifier.js";
@@ -73,6 +76,25 @@ test("download asks socai for media without paid transcription and copies files 
   assert.equal((await m.download([url(1)])).size, 0);
   assert.ok(calls[0].includes("--download-media"));
   assert.ok(!calls[0].includes("--transcribe-audio"));
+});
+
+test("download keeps a saved video when socai exits 1 on a failed poster; rethrows without JSON or on a login gate", async () => {
+  const tmp = await mkdtemp(path.join(os.tmpdir(), "jev-media-"));
+  const saved = path.join(tmp, "video.mp4");
+  await writeFile(saved, "mp4");
+  const fail = (data) => Object.assign(new Error("socai CLI failed"), { details: { exitCode: 1, ...(data ? { data } : {}) } });
+  const videos = [{ ok: false, reason: "poster_download_failed", entity: { url: url(1) }, media: { local_path: saved } }];
+  const partial = createLocalMedia({ root: path.join(tmp, "root"), async runJson() { throw fail({ videos }); } });
+  const out = await partial.download([url(1)]);
+  assert.equal(out.size, 1);
+  assert.equal(await readFile(out.get(url(1)), "utf8"), "mp4");
+  const empty = createLocalMedia({ root: tmp, async runJson() { throw fail({ videos: [{ ok: false, entity: { url: url(2) } }] }); } });
+  await assert.rejects(() => empty.download([url(2)]), /socai CLI failed/);
+  const broken = createLocalMedia({ root: tmp, async runJson() { throw fail(); } });
+  await assert.rejects(() => broken.download([url(1)]), /socai CLI failed/);
+  const gated = createLocalMedia({ root: tmp, async runJson() { throw fail({ videos, login_required: true }); } });
+  await assert.rejects(() => gated.download([url(1)]), /socai CLI failed/);
+  await rm(tmp, { recursive: true, force: true });
 });
 
 test("rehook re-reads hooks from saved frames, keeps transcript and classification, never downloads", async () => {
