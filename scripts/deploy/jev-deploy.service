@@ -1,0 +1,13 @@
+[Unit]
+Description=jev-social pull deploy (origin/main once CI is green)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=anis
+WorkingDirectory=/home/anis/www/jev-social
+Environment=HOME=/home/anis
+Environment=PATH=/home/anis/.nvm/versions/node/v24.15.0/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash /home/anis/www/jev-social/scripts/deploy/deploy.sh
+TimeoutStartSec=15min
