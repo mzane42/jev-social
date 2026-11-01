@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS media (
   video_path TEXT, frames TEXT NOT NULL DEFAULT '[]',
   transcript TEXT, transcript_head TEXT,
   hook_type TEXT, hook_note TEXT, hook_model TEXT,
-  error TEXT, created_at TEXT NOT NULL
+  error TEXT, created_at TEXT NOT NULL, audio TEXT
 );
 CREATE TABLE IF NOT EXISTS candidates (
   niche TEXT NOT NULL, account TEXT NOT NULL, score INTEGER NOT NULL,
@@ -41,6 +41,11 @@ export function openDatabase(file) {
   // Several sessions (CLI runs, discovery, the dashboard) share this file: wait instead of failing on a lock.
   db.exec("PRAGMA busy_timeout = 10000; PRAGMA journal_mode = WAL;");
   db.exec(SCHEMA);
+  // Databases created before the audio reading (2026-11-01) lack the column.
+  // Two processes (CLI, bot) can race on an old file: the loser sees "duplicate column", which is fine.
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('media') WHERE name = 'audio'").get()) {
+    try { db.exec("ALTER TABLE media ADD COLUMN audio TEXT"); } catch (error) { if (!/duplicate column/i.test(error.message)) throw error; }
+  }
   return db;
 }
 
@@ -56,8 +61,8 @@ export function createSqliteRepository({ db, files, now = () => new Date() }) {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const getClass = db.prepare("SELECT * FROM classifications WHERE deck_version = ? AND niche = ?");
   const putMedia = db.prepare(`INSERT OR REPLACE INTO media
-    (url, niche, video_path, frames, transcript, transcript_head, hook_type, hook_note, hook_model, error, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    (url, niche, video_path, frames, transcript, transcript_head, hook_type, hook_note, hook_model, error, created_at, audio)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   const getMedia = db.prepare("SELECT * FROM media WHERE niche = ?");
   const dropClass = db.prepare("DELETE FROM classifications WHERE url = ? AND niche = ?");
   const putCandidate = db.prepare(`INSERT INTO candidates (niche, account, score, signals, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?)
@@ -94,12 +99,12 @@ export function createSqliteRepository({ db, files, now = () => new Date() }) {
       }]));
     },
     media(niche) {
-      return new Map(getMedia.all(niche).map((row) => [row.url, { ...row, frames: JSON.parse(row.frames) }]));
+      return new Map(getMedia.all(niche).map((row) => [row.url, { ...row, frames: JSON.parse(row.frames), audio: row.audio ? JSON.parse(row.audio) : null }]));
     },
     // Saving a transcript drops the url's classifications so the next classify pass reads it.
     saveMedia(niche, m, { keepClassification = false } = {}) {
       putMedia.run(m.url, niche, m.videoPath ?? null, JSON.stringify(m.frames ?? []), m.transcript ?? null, m.head ?? null,
-        m.hookType ?? null, m.note ?? null, m.model ?? null, m.error ?? null, now().toISOString());
+        m.hookType ?? null, m.note ?? null, m.model ?? null, m.error ?? null, now().toISOString(), m.audio ? JSON.stringify(m.audio) : null);
       if (m.transcript && !keepClassification) dropClass.run(m.url, niche);
     },
     saveCandidates(niche, candidates) {

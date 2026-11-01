@@ -39,6 +39,7 @@ Usage:
   jev-social reports classify [--niche <slug>]    Jev-classify saved videos (theme, format, news hook)
   jev-social media <niche> [--top 5 --flops 3]    Download top/flop TikTok videos, frames, local transcript, hook
   jev-social media <niche> --rehook               Re-read hooks from saved frames (no download)
+  jev-social media <niche> --reaudio              Read audio of saved videos: loudness, silences, music, sound effects
   jev-social radar [--max 40] [--no-jev]          Story radar: RSS news, cast match, Jev scoring
   jev-social brief [--social] [--notify]          Morning brief: matches, radar, trends [--q "a,b"]
   jev-social shop collect --niche <slug>          TikTok Shop watch [--dry-run]: searches, product anchors, day file
@@ -156,6 +157,7 @@ try {
       top: validateRange("--top", Number(flags.top ?? 5), 0, 20),
       flops: validateRange("--flops", Number(flags.flops ?? 3), 0, 20),
       rehook: Boolean(flags.rehook),
+      reaudio: Boolean(flags.reaudio),
       log: (line) => console.error(line),
     });
     for (const note of result.notes) console.error(note);
@@ -349,6 +351,7 @@ async function profileDeps() {
       runJson: createSocaiRunJson({ config }),
       apiKey,
       ...(process.env.OPENROUTER_HOOK_MODEL ? { hookModel: process.env.OPENROUTER_HOOK_MODEL.trim() } : {}),
+      ...(process.env.OPENROUTER_AUDIO_MODEL ? { audioModel: process.env.OPENROUTER_AUDIO_MODEL.trim() } : {}),
     }),
     render: { report: renderReport, nicheIndex: renderNicheIndex, rootIndex: renderRootIndex },
   };
@@ -416,6 +419,7 @@ function parseArgs(args) {
     ["--skip-install", "skipInstall"],
     ["--install", "install"],
     ["--rehook", "rehook"],
+    ["--reaudio", "reaudio"],
     ["--no-verify", "noVerify"],
     ["--no-jev", "noJev"],
     ["--dry-run", "dryRun"],
