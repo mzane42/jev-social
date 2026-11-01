@@ -54,6 +54,7 @@ export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookMode
     async download(urls, { signal } = {}) {
       // Never --transcribe-audio (paid cloud ASR): transcription is local mlx_whisper below.
       let raw;
+      let deferred;
       try {
         raw = await runJson(["tiktok", "get-videos", ...urls.flatMap((url) => ["--video", url]), "--num-comments", "0", "--download-media", "--pretty"], { signal });
       } catch (error) {
@@ -62,6 +63,7 @@ export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookMode
         const observed = raw?.state?.observed_state;
         const gated = raw?.login_required || raw?.challenge_required || observed?.login_required || observed?.challenge_required;
         if (!Array.isArray(raw?.videos) || gated) throw error;
+        deferred = error;
       }
       const out = new Map();
       for (const entry of raw?.videos || []) {
@@ -75,6 +77,8 @@ export function createLocalMedia({ runJson, root = mediaRoot(), apiKey, hookMode
         await copyFile(source, target);
         out.set(url, target);
       }
+      // Nothing recovered from a failed run: surface socai's own error instead of silent "download failed" rows.
+      if (deferred && out.size === 0) throw deferred;
       return out;
     },
     async frames(videoPath) {

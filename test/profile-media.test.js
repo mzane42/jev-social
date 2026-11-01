@@ -88,6 +88,8 @@ test("download keeps a saved video when socai exits 1 on a failed poster; rethro
   const out = await partial.download([url(1)]);
   assert.equal(out.size, 1);
   assert.equal(await readFile(out.get(url(1)), "utf8"), "mp4");
+  const empty = createLocalMedia({ root: tmp, async runJson() { throw fail({ videos: [{ ok: false, entity: { url: url(2) } }] }); } });
+  await assert.rejects(() => empty.download([url(2)]), /socai CLI failed/);
   const broken = createLocalMedia({ root: tmp, async runJson() { throw fail(); } });
   await assert.rejects(() => broken.download([url(1)]), /socai CLI failed/);
   const gated = createLocalMedia({ root: tmp, async runJson() { throw fail({ videos, login_required: true }); } });
